@@ -10,6 +10,20 @@ type User = {
   // Add other user properties as needed
 };
 
+type User = {
+  id?: number;
+  email?: string;
+  profile?: {
+    is_manager: boolean;
+    is_production: boolean;
+    is_utilities: boolean;
+    is_purchase: boolean;
+    department: string;
+    mobile_number?: string;
+    image?: string;
+  };
+};
+
 type AuthContextType = {
   token: string | null;
   user: User | null;
