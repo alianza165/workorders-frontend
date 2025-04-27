@@ -16,6 +16,9 @@ export default function WorkOrderDetail() {
   const [error, setError] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [formData, setFormData] = useState<any>({});
+  const [showCloseDialog, setShowCloseDialog] = useState(false);
+  const [closeStatus, setCloseStatus] = useState(true);
+  const [closingRemarks, setClosingRemarks] = useState('');
 
   useEffect(() => {
     if (!token || !id) {
@@ -153,6 +156,41 @@ export default function WorkOrderDetail() {
       setHistory(await historyRes.json());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCloseWorkOrder = async (closed: boolean, remarks: string) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`http://localhost:8000/api/workorders/${workOrder.id}/close/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          closed: closed,
+          closing_remarks: remarks
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to close work order');
+      }
+
+      // Refresh data
+      const updatedOrder = await response.json();
+      setWorkOrder(updatedOrder);
+      
+      // Refresh history
+      const historyRes = await fetch(`http://localhost:8000/api/workorders/${id}/history/`);
+      setHistory(await historyRes.json());
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to close work order');
     } finally {
       setLoading(false);
     }
@@ -433,11 +471,59 @@ export default function WorkOrderDetail() {
               )}
               {canClose && (
                 <button
-                  onClick={() => handleAction('close')}
+                  onClick={() => setShowCloseDialog(true)}
                   className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
                 >
                   Close Work Order
                 </button>
+              )}
+
+              {showCloseDialog && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                  <div className="bg-white p-6 rounded-lg max-w-md w-full">
+                    <h3 className="text-lg font-medium mb-4">Close Work Order</h3>
+                    
+                    <div className="mb-4">
+                      <label className="block mb-2">
+                        <input 
+                          type="checkbox" 
+                          checked={closeStatus}
+                          onChange={(e) => setCloseStatus(e.target.checked)}
+                          className="mr-2"
+                        />
+                        Mark as Closed
+                      </label>
+                    </div>
+
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium mb-1">Closing Remarks</label>
+                      <textarea
+                        value={closingRemarks}
+                        onChange={(e) => setClosingRemarks(e.target.value)}
+                        className="w-full border rounded p-2"
+                        rows={3}
+                      />
+                    </div>
+
+                    <div className="flex justify-end space-x-2">
+                      <button
+                        onClick={() => setShowCloseDialog(false)}
+                        className="px-4 py-2 border rounded"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleCloseWorkOrder(closeStatus, closingRemarks);
+                          setShowCloseDialog(false);
+                        }}
+                        className="px-4 py-2 bg-purple-600 text-white rounded"
+                      >
+                        Confirm
+                      </button>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
           </div>
