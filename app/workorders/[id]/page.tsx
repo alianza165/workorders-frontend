@@ -11,6 +11,7 @@ export default function WorkOrderDetail() {
   const { token, user } = useAuth();
   const router = useRouter();
   const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [history, setHistory] = useState<WorkOrderHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -96,17 +97,24 @@ export default function WorkOrderDetail() {
 
     try {
       setLoading(true);
+
+      const cleanedPayload = Object.fromEntries(
+        Object.entries(formData).filter(([_, value]) => value !== "")
+      );
       const response = await fetch(`http://localhost:8000/api/workorders/${workOrder.id}/`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Token ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(cleanedPayload)
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update work order');
+        // Add this to see the actual error message from the server
+        const errorData = await response.json();
+        console.error('Server error:', errorData);
+        throw new Error(errorData.error || 'Failed to update work order');
       }
 
       const updatedOrder = await response.json();
@@ -132,6 +140,8 @@ export default function WorkOrderDetail() {
 
     try {
       setLoading(true);
+      setHistoryLoading(true); // Add this line
+      
       const response = await fetch(`http://localhost:8000/api/workorders/${workOrder.id}/${action}/`, {
         method: 'POST',
         headers: {
@@ -146,6 +156,7 @@ export default function WorkOrderDetail() {
 
       const updatedOrder = await response.json();
       setWorkOrder(updatedOrder);
+      
       // Refresh history
       const historyRes = await fetch(`http://localhost:8000/api/workorders/${id}/history/`, {
         headers: {
@@ -153,11 +164,14 @@ export default function WorkOrderDetail() {
           'Content-Type': 'application/json',
         },
       });
-      setHistory(await historyRes.json());
+      
+      const historyData = await historyRes.json();
+      setHistory(historyData.results || historyData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
     } finally {
       setLoading(false);
+      setHistoryLoading(false); // Add this line
     }
   };
 
@@ -534,19 +548,23 @@ export default function WorkOrderDetail() {
           <div className="bg-white shadow rounded-lg p-6">
             <h2 className="text-xl font-semibold mb-4">History</h2>
             <div className="space-y-4">
-              {history.length === 0 ? (
+              {historyLoading ? (
+                <div className="flex justify-center items-center py-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                </div>
+              ) : history && Array.isArray(history) && history.length === 0 ? (
                 <p className="text-sm text-gray-500">No history available</p>
-              ) : (
+              ) : history && Array.isArray(history) ? (
                 <ul className="space-y-4">
                   {history.map((item) => (
                     <li key={item.id} className="border-l-2 border-blue-500 pl-4 py-2">
                       <div className="text-sm font-medium">
-                        {item.changed_by.username} - {item.action}
+                        {item.changed_by?.username || 'Unknown'} - {item.action}
                       </div>
                       <div className="text-xs text-gray-500">
-                        {format(new Date(item.timestamp), 'PPpp')}
+                        {item.timestamp && format(new Date(item.timestamp), 'PPpp')}
                       </div>
-                      {Object.keys(item.snapshot).length > 0 && (
+                      {item.snapshot && Object.keys(item.snapshot).length > 0 && (
                         <div className="mt-1 text-xs text-gray-700">
                           {Object.entries(item.snapshot).map(([key, value]) => (
                             <div key={key}>
@@ -558,6 +576,8 @@ export default function WorkOrderDetail() {
                     </li>
                   ))}
                 </ul>
+              ) : (
+                <p className="text-sm text-red-500">Error loading history data</p>
               )}
             </div>
           </div>
