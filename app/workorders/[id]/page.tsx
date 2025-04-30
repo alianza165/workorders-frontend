@@ -8,7 +8,7 @@ import { format } from 'date-fns';
 
 export default function WorkOrderDetail() {
   const { id } = useParams();
-  const { token, user } = useAuth();
+  const { token, user, isAuthenticated } = useAuth();
   const router = useRouter();
   const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -22,6 +22,12 @@ export default function WorkOrderDetail() {
   const [closingRemarks, setClosingRemarks] = useState('');
 
   useEffect(() => {
+
+    if (!isAuthenticated) {
+      router.push('/signin');
+      return;
+    }
+
     if (!token || !id) {
       router.push('/signin');
       return;
@@ -341,16 +347,20 @@ export default function WorkOrderDetail() {
 
             {editMode ? (
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Problem</label>
-                  <textarea
-                    name="problem"
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-                    value={formData.problem || workOrder.problem}
-                    onChange={handleChange}
-                    disabled={!canEdit}
-                  />
-                </div>
+                {user.profile.is_production && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Problem</label>
+                      <textarea
+                        name="problem"
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                        value={formData.problem || workOrder.problem}
+                        onChange={handleChange}
+                        disabled={!canEdit}
+                      />
+                    </div>
+                  </>
+                )}
 
                 {user.profile.is_utilities && (
                   <>
