@@ -7,7 +7,7 @@ import { WorkOrder, WorkOrderResponse } from '../../types/workorder';
 import { format } from 'date-fns';
 
 export default function Dashboard() {
-  const { token, user } = useAuth();
+  const { token, user, isAuthenticated } = useAuth();
   const router = useRouter();
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,6 +62,10 @@ export default function Dashboard() {
   }, [token, statusFilter, departmentFilter]);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      router.push('/signin');
+      return;
+    }
     fetchWorkOrders();
   }, [fetchWorkOrders]);
 

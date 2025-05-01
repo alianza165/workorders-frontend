@@ -17,10 +17,38 @@ export default function CreateWorkOrder() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
   const [partsList, setPartsList] = useState<Part[]>([]);
   const [workTypes, setWorkTypes] = useState<Type_of_Work[]>([]);
   const [isFetching, setIsFetching] = useState(true);
+  const [equipmentSearch, setEquipmentSearch] = useState('');
+  const [allEquipment, setAllEquipment] = useState<Equipment[]>([]);
+  const [filteredEquipment, setFilteredEquipment] = useState<Equipment[]>([]);
+  const [showEquipmentDropdown, setShowEquipmentDropdown] = useState(false);
+  const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
+
+  const fetchAllEquipment = async (search = '') => {
+    try {
+      let url = 'http://localhost:8000/api/equipment/';
+      if (search) {
+        url += `?search=${encodeURIComponent(search)}`;
+      }
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch equipment');
+      
+      const data = await response.json();
+      return data.results || data;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load equipment');
+      return [];
+    }
+  };
 
   useEffect(() => {
     if (!token) {
@@ -32,14 +60,13 @@ export default function CreateWorkOrder() {
       try {
         setIsFetching(true);
         
-        // Fetch all required data in parallel
-        const [equipmentRes, partsRes, workTypesRes] = await Promise.all([
-          fetch('http://localhost:8000/api/equipment/', {
-            headers: {
-              'Authorization': `Token ${token}`,
-              'Content-Type': 'application/json',
-            },
-          }),
+        // First fetch all equipment without search
+        const equipmentData = await fetchAllEquipment();
+        setAllEquipment(equipmentData);
+        setFilteredEquipment(equipmentData);
+
+        // Then fetch other data in parallel
+        const [partsRes, workTypesRes] = await Promise.all([
           fetch('http://localhost:8000/api/parts/', {
             headers: {
               'Authorization': `Token ${token}`,
@@ -54,17 +81,14 @@ export default function CreateWorkOrder() {
           })
         ]);
 
-        if (!equipmentRes.ok) throw new Error('Failed to fetch equipment');
         if (!partsRes.ok) throw new Error('Failed to fetch parts');
         if (!workTypesRes.ok) throw new Error('Failed to fetch work types');
 
-        const [equipmentData, partsData, workTypesData] = await Promise.all([
-          equipmentRes.json(),
+        const [partsData, workTypesData] = await Promise.all([
           partsRes.json(),
           workTypesRes.json()
         ]);
 
-        setEquipmentList(equipmentData.results || equipmentData);
         setPartsList(partsData.results || partsData);
         setWorkTypes(workTypesData.results || workTypesData);
       } catch (err) {
@@ -76,6 +100,51 @@ export default function CreateWorkOrder() {
 
     fetchInitialData();
   }, [token, router]);
+
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (equipmentSearch.trim() === '') {
+        setFilteredEquipment(allEquipment);
+      } else {
+        const filtered = allEquipment.filter(equip => 
+          equip.machine.toLowerCase().includes(equipmentSearch.toLowerCase()) ||
+          (equip.machine_type?.machine_type?.toLowerCase().includes(equipmentSearch.toLowerCase())) ||
+          (equip.location?.area?.toLowerCase().includes(equipmentSearch.toLowerCase()))
+        );
+        setFilteredEquipment(filtered);
+      }
+      setShowEquipmentDropdown(true);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [equipmentSearch, allEquipment]);
+
+  const handleEquipmentSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const searchTerm = e.target.value;
+    setEquipmentSearch(searchTerm);
+    
+    // Clear selection if search term doesn't match the selected equipment
+    if (selectedEquipment && !searchTerm.startsWith(selectedEquipment.machine)) {
+      setSelectedEquipment(null);
+      setFormData(prev => ({ ...prev, equipment: '' }));
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // If backspace is pressed and there's a selected equipment
+    if (e.key === 'Backspace' && selectedEquipment) {
+      setSelectedEquipment(null);
+      setFormData(prev => ({ ...prev, equipment: '' }));
+      setEquipmentSearch('');
+    }
+  };
+
+  const handleEquipmentSelect = (equip: Equipment) => {
+    setSelectedEquipment(equip);
+    setEquipmentSearch(`${equip.machine} (${equip.machine_type?.machine_type}) - ${equip.location?.area}`);
+    setFormData(prev => ({ ...prev, equipment: equip.id.toString() }));
+    setShowEquipmentDropdown(false);
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -137,14 +206,14 @@ export default function CreateWorkOrder() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="problem" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="problem" className="block text-sm font-medium text-gray-200">
             Problem Description *
           </label>
           <textarea
             id="problem"
             name="problem"
             rows={4}
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-900"
             value={formData.problem}
             onChange={handleChange}
             required
@@ -153,35 +222,73 @@ export default function CreateWorkOrder() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="equipment" className="block text-sm font-medium text-gray-700">
-              Equipment *
-            </label>
-            <select
-              id="equipment"
-              name="equipment"
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-              value={formData.equipment}
-              onChange={handleChange}
-              required
-            >
-              <option value="">Select Equipment</option>
-              {equipmentList.map(equip => (
-                <option key={equip.id} value={equip.id}>
-                  {equip.machine} ({equip.machine_type.machine_type}) - {equip.location.area}
-                </option>
-              ))}
-            </select>
-          </div>
+
+        <div className="relative">
+          <label htmlFor="equipment-search" className="block text-sm font-medium text-gray-200">
+            Equipment *
+          </label>
+          <input
+            id="equipment-search"
+            type="text"
+            placeholder="Search for equipment..."
+            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-900"
+            value={selectedEquipment ? selectedEquipment.machine : equipmentSearch}
+            onChange={handleEquipmentSearch}
+            onKeyDown={handleKeyDown}
+            onFocus={() => setShowEquipmentDropdown(true)}
+            onBlur={() => setTimeout(() => setShowEquipmentDropdown(false), 200)}
+            required
+          />
+          
+          {/* Selected equipment details */}
+          {selectedEquipment && (
+            <div className="mt-1 text-sm text-gray-600">
+              Type: {selectedEquipment.machine_type?.machine_type} | 
+              Location: {selectedEquipment.location?.area}
+            </div>
+          )}
+
+          {/* Equipment dropdown */}
+          {showEquipmentDropdown && !selectedEquipment && (
+            <>
+              {filteredEquipment.length > 0 ? (
+                <ul className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                  {filteredEquipment.map(equip => (
+                    <li 
+                      key={equip.id}
+                      className="px-4 py-2 hover:bg-blue-50 cursor-pointer"
+                      onClick={() => handleEquipmentSelect(equip)}
+                    >
+                      <div className="font-medium text-gray-900">{equip.machine}</div>
+                      <div className="text-sm text-gray-600">
+                        {equip.machine_type?.machine_type} - {equip.location?.area}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : equipmentSearch && (
+                <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg p-4 text-sm text-gray-500">
+                  No equipment found matching "{equipmentSearch}"
+                </div>
+              )}
+            </>
+          )}
+          
+          <input
+            type="hidden"
+            name="equipment"
+            value={formData.equipment}
+          />
+        </div>
 
           <div>
-            <label htmlFor="part" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="part" className="block text-sm font-medium text-gray-200">
               Part (if applicable)
             </label>
             <select
               id="part"
               name="part"
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-900"
               value={formData.part}
               onChange={handleChange}
               disabled={!formData.equipment}
@@ -200,13 +307,13 @@ export default function CreateWorkOrder() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="type_of_work" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="type_of_work" className="block text-sm font-medium text-gray-200">
               Type of Work *
             </label>
             <select
               id="type_of_work"
               name="type_of_work"
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-900"
               value={formData.type_of_work}
               onChange={handleChange}
               required
@@ -221,13 +328,13 @@ export default function CreateWorkOrder() {
           </div>
 
           <div>
-            <label htmlFor="department" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="department" className="block text-sm font-medium text-gray-200">
               Assign to Department *
             </label>
             <select
               id="department"
               name="department"
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-900"
               value={formData.department}
               onChange={handleChange}
               required
