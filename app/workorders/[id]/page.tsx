@@ -20,9 +20,9 @@ export default function WorkOrderDetail() {
   const [showCloseDialog, setShowCloseDialog] = useState(false);
   const [closeStatus, setCloseStatus] = useState(true);
   const [closingRemarks, setClosingRemarks] = useState('');
+  const [workTypes, setWorkTypes] = useState<Type_of_Work[]>([]);
 
   useEffect(() => {
-
     if (!isAuthenticated) {
       router.push('/signin');
       return;
@@ -33,22 +33,24 @@ export default function WorkOrderDetail() {
       return;
     }
 
-    const fetchData = async () => {
+    const fetchInitialData = async () => {
       try {
         setLoading(true);
         setError(null);
         
-        const validationRes = await fetch(`http://localhost:8000/api/workorders/${id}/check-access/`, {
+        // First fetch work types
+        const workTypesRes = await fetch('http://localhost:8000/api/work-types/', {
           headers: {
             'Authorization': `Token ${token}`,
             'Content-Type': 'application/json',
           },
         });
 
-        if (!validationRes.ok) {
-          throw new Error('You do not have permission to view this work order');
-        }
+        if (!workTypesRes.ok) throw new Error('Failed to fetch work types');
+        const workTypesData = await workTypesRes.json();
+        setWorkTypes(workTypesData.results || workTypesData);
 
+        // Then fetch work order and history
         const [orderRes, historyRes] = await Promise.all([
           fetch(`http://localhost:8000/api/workorders/${id}/`, {
             headers: {
@@ -73,7 +75,7 @@ export default function WorkOrderDetail() {
         ]);
 
         setWorkOrder(orderData);
-        setHistory(historyData.results || historyData); // Handle both array and object response
+        setHistory(historyData.results || historyData);
         setFormData({
           remarks: orderData.remarks || '',
           assigned_to: orderData.assigned_to || '',
@@ -89,8 +91,14 @@ export default function WorkOrderDetail() {
       }
     };
 
-    fetchData();
-  }, [id, token, router]);
+    fetchInitialData();
+  }, [id, token, isAuthenticated, router]);
+
+  // Helper function to get work type name
+  const getWorkTypeName = (id: number) => {
+    const type = workTypes.find(t => t.id === id);
+    return type?.type_of_work || `Type #${id}`;
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -317,7 +325,7 @@ export default function WorkOrderDetail() {
         <h1 className="text-2xl font-bold">Work Order #{workOrder.id}</h1>
         <button
           onClick={() => router.push('/dashboard')}
-          className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
+          className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-400 hover:bg-gray-50"
         >
           Back to List
         </button>
@@ -334,7 +342,7 @@ export default function WorkOrderDetail() {
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white shadow rounded-lg p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Details</h2>
+              <h2 className="text-xl font-semibold text-gray-400">Details</h2>
               {canEdit && !editMode && (
                 <button
                   onClick={() => setEditMode(true)}
@@ -350,10 +358,10 @@ export default function WorkOrderDetail() {
                 {user.profile.is_production && (
                   <>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Problem</label>
+                      <label className="block text-sm font-medium text-gray-400">Problem</label>
                       <textarea
                         name="problem"
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-400"
                         value={formData.problem || workOrder.problem}
                         onChange={handleChange}
                         disabled={!canEdit}
@@ -369,7 +377,7 @@ export default function WorkOrderDetail() {
                       <input
                         type="text"
                         name="assigned_to"
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-400"
                         value={formData.assigned_to}
                         onChange={handleChange}
                       />
@@ -379,7 +387,7 @@ export default function WorkOrderDetail() {
                       <input
                         type="date"
                         name="target_date"
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-400"
                         value={formData.target_date}
                         onChange={handleChange}
                       />
@@ -388,7 +396,7 @@ export default function WorkOrderDetail() {
                       <label className="block text-sm font-medium text-gray-700">Remarks</label>
                       <textarea
                         name="remarks"
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-400"
                         value={formData.remarks}
                         onChange={handleChange}
                       />
@@ -415,25 +423,25 @@ export default function WorkOrderDetail() {
             ) : (
               <div className="space-y-4">
                 <div>
-                  <p className="text-sm text-gray-500">Problem</p>
-                  <p className="mt-1">{workOrder.problem}</p>
+                  <p className="text-sm text-gray-700">Problem</p>
+                  <p className="mt-1 text-gray-400">{workOrder.problem}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Equipment</p>
-                  <p className="mt-1">
+                  <p className="text-sm text-gray-700">Equipment</p>
+                  <p className="mt-1 text-gray-400">
                     {workOrder.equipment.machine} ({workOrder.equipment.machine_type.machine_type})
                   </p>
                 </div>
                 {workOrder.part && (
                   <div>
-                    <p className="text-sm text-gray-500">Part</p>
-                    <p className="mt-1">
+                    <p className="text-sm text-gray-700">Part</p>
+                    <p className="mt-1 text-gray-400">
                       {workOrder.part.name} ({workOrder.part.part_type.part_type})
                     </p>
                   </div>
                 )}
                 <div>
-                  <p className="text-sm text-gray-500">Status</p>
+                  <p className="text-sm text-gray-700">Status</p>
                   <p className="mt-1">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                       ${workOrder.work_status.work_status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : 
@@ -467,7 +475,7 @@ export default function WorkOrderDetail() {
 
           {/* Action Buttons */}
           <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-4">Actions</h2>
+            <h2 className="text-xl font-semibold mb-4 text-gray-400">Actions</h2>
             <div className="flex flex-wrap gap-4">
               {canAccept && (
                 <>
@@ -556,7 +564,7 @@ export default function WorkOrderDetail() {
         {/* History Sidebar */}
         <div className="space-y-6">
           <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-4">History</h2>
+            <h2 className="text-xl font-semibold mb-4 text-gray-400">History</h2>
             <div className="space-y-4">
               {historyLoading ? (
                 <div className="flex justify-center items-center py-4">
@@ -566,25 +574,60 @@ export default function WorkOrderDetail() {
                 <p className="text-sm text-gray-500">No history available</p>
               ) : history && Array.isArray(history) ? (
                 <ul className="space-y-4">
-                  {history.map((item) => (
-                    <li key={item.id} className="border-l-2 border-blue-500 pl-4 py-2">
-                      <div className="text-sm font-medium">
-                        {item.changed_by?.username || 'Unknown'} - {item.action}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {item.timestamp && format(new Date(item.timestamp), 'PPpp')}
-                      </div>
-                      {item.snapshot && Object.keys(item.snapshot).length > 0 && (
-                        <div className="mt-1 text-xs text-gray-700">
-                          {Object.entries(item.snapshot).map(([key, value]) => (
-                            <div key={key}>
-                              <span className="font-medium">{key}:</span> {JSON.stringify(value)}
-                            </div>
-                          ))}
+                  {history.map((item) => {
+                    // Filter out null/empty values and format the data
+                    const filteredSnapshot = Object.entries(item.snapshot || {})
+                      .filter(([_, value]) => value !== null && value !== "none" && value !== "")
+                      .reduce((acc, [key, value]) => {
+                        // Format specific fields
+                        switch (key) {
+                          case 'equipment':
+                            acc[key] = `${value.machine} (${value.machine_type?.machine_type})`;
+                            break;
+                          case 'initiated_by':
+                            acc[key] = value.username;
+                            break;
+                          case 'type_of_work':
+                            acc[key] = getWorkTypeName(value);
+                            break;
+                          case 'work_status':
+                            acc[key] = value.work_status;
+                            break;
+                          case 'initiation_date':
+                          case 'completion_date':
+                            acc[key] = format(new Date(value), 'PPpp');
+                            break;
+                          default:
+                            acc[key] = value;
+                        }
+                        return acc;
+                      }, {});
+
+                    return (
+                      <li key={item.id} className="border-l-2 border-blue-500 pl-4 py-2">
+                        <div className="text-sm font-medium text-gray-700">
+                          {item.changed_by?.username || 'System'} - {item.action}
                         </div>
-                      )}
-                    </li>
-                  ))}
+                        <div className="text-xs text-gray-500">
+                          {item.timestamp && format(new Date(item.timestamp), 'PPpp')}
+                        </div>
+                        {Object.keys(filteredSnapshot).length > 0 && (
+                          <div className="mt-2 space-y-1 text-xs text-gray-700">
+                            {Object.entries(filteredSnapshot).map(([key, value]) => (
+                              <div key={key} className="grid grid-cols-3 gap-2">
+                                <span className="col-span-1 font-medium capitalize">
+                                  {key.replace(/_/g, ' ')}:
+                                </span>
+                                <span className="col-span-2">
+                                  {typeof value === 'object' ? JSON.stringify(value) : value}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : (
                 <p className="text-sm text-red-500">Error loading history data</p>
