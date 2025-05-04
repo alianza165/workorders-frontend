@@ -21,6 +21,12 @@ export default function WorkOrderDetail() {
   const [closeStatus, setCloseStatus] = useState(true);
   const [closingRemarks, setClosingRemarks] = useState('');
   const [workTypes, setWorkTypes] = useState<Type_of_Work[]>([]);
+  const [acceptanceFormData, setAcceptanceFormData] = useState({
+    assigned_to: '',
+    target_date: '',
+    remarks: ''
+  });
+  const [showAcceptanceForm, setShowAcceptanceForm] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -149,19 +155,23 @@ export default function WorkOrderDetail() {
     }
   };
 
-  const handleAction = async (action: string) => {
+  const handleAction = async (action: string, formData = null) => {
     if (!workOrder) return;
 
     try {
       setLoading(true);
-      setHistoryLoading(true); // Add this line
       
-      const response = await fetch(`http://localhost:8000/api/workorders/${workOrder.id}/${action}/`, {
+      const endpoint = action === 'accept' 
+        ? `http://localhost:8000/api/workorders/${workOrder.id}/accept/`
+        : `http://localhost:8000/api/workorders/${workOrder.id}/${action}/`;
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Authorization': `Token ${token}`,
           'Content-Type': 'application/json',
         },
+        body: action === 'accept' ? JSON.stringify(formData) : null
       });
 
       if (!response.ok) {
@@ -170,6 +180,8 @@ export default function WorkOrderDetail() {
 
       const updatedOrder = await response.json();
       setWorkOrder(updatedOrder);
+      setShowAcceptanceForm(false);
+      setAcceptanceFormData({ assigned_to: '', target_date: '', remarks: '' });
       
       // Refresh history
       const historyRes = await fetch(`http://localhost:8000/api/workorders/${id}/history/`, {
@@ -179,14 +191,18 @@ export default function WorkOrderDetail() {
         },
       });
       
-      const historyData = await historyRes.json();
-      setHistory(historyData.results || historyData);
+      setHistory(await historyRes.json());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
     } finally {
       setLoading(false);
-      setHistoryLoading(false); // Add this line
     }
+  };
+
+  // Add this handler for the acceptance form
+  const handleAcceptanceSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleAction('accept', acceptanceFormData);
   };
 
   const handleCloseWorkOrder = async (closed: boolean, remarks: string) => {
@@ -453,20 +469,20 @@ export default function WorkOrderDetail() {
                 </div>
                 {workOrder.assigned_to && (
                   <div>
-                    <p className="text-sm text-gray-500">Assigned To</p>
-                    <p className="mt-1">{workOrder.assigned_to}</p>
+                    <p className="text-sm text-gray-700">Assigned To</p>
+                    <p className="mt-1 text-gray-400">{workOrder.assigned_to}</p>
                   </div>
                 )}
                 {workOrder.target_date && (
                   <div>
-                    <p className="text-sm text-gray-500">Target Date</p>
-                    <p className="mt-1">{format(new Date(workOrder.target_date), 'PP')}</p>
+                    <p className="text-sm text-gray-700">Target Date</p>
+                    <p className="mt-1 text-gray-400">{format(new Date(workOrder.target_date), 'PP')}</p>
                   </div>
                 )}
                 {workOrder.remarks && (
                   <div>
-                    <p className="text-sm text-gray-500">Remarks</p>
-                    <p className="mt-1">{workOrder.remarks}</p>
+                    <p className="text-sm text-gray-700">Remarks</p>
+                    <p className="mt-1 text-gray-400">{workOrder.remarks}</p>
                   </div>
                 )}
               </div>
@@ -477,22 +493,77 @@ export default function WorkOrderDetail() {
           <div className="bg-white shadow rounded-lg p-6">
             <h2 className="text-xl font-semibold mb-4 text-gray-400">Actions</h2>
             <div className="flex flex-wrap gap-4">
+              {/* Acceptance Flow */}
               {canAccept && (
                 <>
-                  <button
-                    onClick={() => handleAction('accept')}
-                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                  >
-                    Accept Work Order
-                  </button>
-                  <button
-                    onClick={() => handleAction('reject')}
-                    className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                  >
-                    Reject Work Order
-                  </button>
+                  {showAcceptanceForm ? (
+                    <div className="w-full space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Assigned To</label>
+                        <input
+                          type="text"
+                          name="assigned_to"
+                          className="mt-1 block w-full border border-gray-400 rounded-md shadow-sm p-2 text-gray-400"
+                          value={acceptanceFormData.assigned_to}
+                          onChange={(e) => setAcceptanceFormData({...acceptanceFormData, assigned_to: e.target.value})}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Target Date</label>
+                        <input
+                          type="date"
+                          name="target_date"
+                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-400"
+                          value={acceptanceFormData.target_date}
+                          onChange={(e) => setAcceptanceFormData({...acceptanceFormData, target_date: e.target.value})}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Remarks</label>
+                        <textarea
+                          name="remarks"
+                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-400"
+                          value={acceptanceFormData.remarks}
+                          onChange={(e) => setAcceptanceFormData({...acceptanceFormData, remarks: e.target.value})}
+                        />
+                      </div>
+                      <div className="flex gap-4">
+                        <button
+                          onClick={() => setShowAcceptanceForm(false)}
+                          className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => handleAction('accept', acceptanceFormData)}
+                          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                        >
+                          Confirm Acceptance
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setShowAcceptanceForm(true)}
+                        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                      >
+                        Accept Work Order
+                      </button>
+                      <button
+                        onClick={() => handleAction('reject')}
+                        className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                      >
+                        Reject Work Order
+                      </button>
+                    </>
+                  )}
                 </>
               )}
+
+              {/* Completion Button (unchanged) */}
               {canComplete && (
                 <button
                   onClick={() => handleAction('complete')}
@@ -501,61 +572,65 @@ export default function WorkOrderDetail() {
                   Mark as Completed
                 </button>
               )}
+
+              {/* Close Work Order Dialog (unchanged) */}
               {canClose && (
-                <button
-                  onClick={() => setShowCloseDialog(true)}
-                  className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-                >
-                  Close Work Order
-                </button>
-              )}
+                <>
+                  <button
+                    onClick={() => setShowCloseDialog(true)}
+                    className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+                  >
+                    Close Work Order
+                  </button>
+                  
+                  {showCloseDialog && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                      <div className="bg-white p-6 rounded-lg max-w-md w-full">
+                        <h3 className="text-lg font-medium mb-4">Close Work Order</h3>
+                        
+                        <div className="mb-4">
+                          <label className="block mb-2">
+                            <input 
+                              type="checkbox" 
+                              checked={closeStatus}
+                              onChange={(e) => setCloseStatus(e.target.checked)}
+                              className="mr-2"
+                            />
+                            Mark as Closed
+                          </label>
+                        </div>
 
-              {showCloseDialog && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                  <div className="bg-white p-6 rounded-lg max-w-md w-full">
-                    <h3 className="text-lg font-medium mb-4">Close Work Order</h3>
-                    
-                    <div className="mb-4">
-                      <label className="block mb-2">
-                        <input 
-                          type="checkbox" 
-                          checked={closeStatus}
-                          onChange={(e) => setCloseStatus(e.target.checked)}
-                          className="mr-2"
-                        />
-                        Mark as Closed
-                      </label>
-                    </div>
+                        <div className="mb-4">
+                          <label className="block text-sm font-medium mb-1">Closing Remarks</label>
+                          <textarea
+                            value={closingRemarks}
+                            onChange={(e) => setClosingRemarks(e.target.value)}
+                            className="w-full border rounded p-2"
+                            rows={3}
+                          />
+                        </div>
 
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium mb-1">Closing Remarks</label>
-                      <textarea
-                        value={closingRemarks}
-                        onChange={(e) => setClosingRemarks(e.target.value)}
-                        className="w-full border rounded p-2"
-                        rows={3}
-                      />
+                        <div className="flex justify-end space-x-2">
+                          <button
+                            onClick={() => setShowCloseDialog(false)}
+                            className="px-4 py-2 border rounded"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => {
+                              handleCloseWorkOrder(closeStatus, closingRemarks);
+                              setShowCloseDialog(false);
+                            }}
+                            className="px-4 py-2 bg-purple-600 text-white rounded"
+                          >
+                            Confirm
+                          </button>
+                        </div>
+                      </div>
                     </div>
-
-                    <div className="flex justify-end space-x-2">
-                      <button
-                        onClick={() => setShowCloseDialog(false)}
-                        className="px-4 py-2 border rounded"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => {
-                          handleCloseWorkOrder(closeStatus, closingRemarks);
-                          setShowCloseDialog(false);
-                        }}
-                        className="px-4 py-2 bg-purple-600 text-white rounded"
-                      >
-                        Confirm
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -575,33 +650,45 @@ export default function WorkOrderDetail() {
               ) : history && Array.isArray(history) ? (
                 <ul className="space-y-4">
                   {history.map((item) => {
-                    // Filter out null/empty values and format the data
-                    const filteredSnapshot = Object.entries(item.snapshot || {})
-                      .filter(([_, value]) => value !== null && value !== "none" && value !== "")
-                      .reduce((acc, [key, value]) => {
-                        // Format specific fields
-                        switch (key) {
-                          case 'equipment':
-                            acc[key] = `${value.machine} (${value.machine_type?.machine_type})`;
-                            break;
-                          case 'initiated_by':
-                            acc[key] = value.username;
-                            break;
-                          case 'type_of_work':
-                            acc[key] = getWorkTypeName(value);
-                            break;
-                          case 'work_status':
-                            acc[key] = value.work_status;
-                            break;
-                          case 'initiation_date':
-                          case 'completion_date':
-                            acc[key] = format(new Date(value), 'PPpp');
-                            break;
-                          default:
-                            acc[key] = value;
-                        }
-                        return acc;
-                      }, {});
+                    // Format the snapshot data
+                    const formatSnapshot = (snapshot) => {
+                      if (!snapshot) return {};
+                      
+                      return Object.entries(snapshot)
+                        .filter(([_, value]) => value !== null && value !== "none" && value !== "")
+                        .reduce((acc, [key, value]) => {
+                          switch (key) {
+                            case 'closed':
+                              acc[key] = value.closed; // 'Yes' or 'No'
+                              break;
+                            case 'accepted':
+                              acc[key] = value ? 'Yes' : 'No';  // Convert boolean to Yes/No
+                              break;
+                            case 'equipment':
+                              acc[key] = `${value.machine} (${value.machine_type})`;
+                              break;
+                            case 'type_of_work':
+                              acc[key] = typeof value === 'object' ? value.type_of_work : getWorkTypeName(value);
+                              break;
+                            case 'work_status':
+                              acc[key] = value.work_status;
+                              break;
+                            case 'initiated_by':
+                              acc[key] = value.username;
+                              break;
+                            case 'initiation_date':
+                            case 'completion_date':
+                            case 'target_date':
+                              acc[key] = format(new Date(value), 'PPpp');
+                              break;
+                            default:
+                              acc[key] = value;
+                          }
+                          return acc;
+                        }, {});
+                    };
+
+                    const formattedSnapshot = formatSnapshot(item.snapshot);
 
                     return (
                       <li key={item.id} className="border-l-2 border-blue-500 pl-4 py-2">
@@ -611,15 +698,15 @@ export default function WorkOrderDetail() {
                         <div className="text-xs text-gray-500">
                           {item.timestamp && format(new Date(item.timestamp), 'PPpp')}
                         </div>
-                        {Object.keys(filteredSnapshot).length > 0 && (
+                        {Object.keys(formattedSnapshot).length > 0 && (
                           <div className="mt-2 space-y-1 text-xs text-gray-700">
-                            {Object.entries(filteredSnapshot).map(([key, value]) => (
+                            {Object.entries(formattedSnapshot).map(([key, value]) => (
                               <div key={key} className="grid grid-cols-3 gap-2">
                                 <span className="col-span-1 font-medium capitalize">
                                   {key.replace(/_/g, ' ')}:
                                 </span>
                                 <span className="col-span-2">
-                                  {typeof value === 'object' ? JSON.stringify(value) : value}
+                                  {value}
                                 </span>
                               </div>
                             ))}
