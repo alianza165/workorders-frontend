@@ -118,7 +118,8 @@ export default function Header() {
                 </div>
                 <div className="hidden sm:block">
                   <div className="flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
-                    {isAuthenticated && <p>Welcome, {user?.name || user?.email || 'User'}!</p>}
+                    {isAuthenticated && ( <p className={`text-lg font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
+                     Welcome, {user?.username || user?.email || 'User'}!</p>)}
                     <div className="flex items-center space-x-2">
                       <input
                         type="radio"
