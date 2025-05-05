@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useParams, useRouter } from 'next/navigation';
 import { WorkOrder, WorkOrderHistory } from '../../types/workorder';
 import { format } from 'date-fns';
+import { useAppContext } from '../../context/AppContext';
 
 export default function WorkOrderDetail() {
   const { id } = useParams();
@@ -27,6 +28,8 @@ export default function WorkOrderDetail() {
     remarks: ''
   });
   const [showAcceptanceForm, setShowAcceptanceForm] = useState(false);
+  const { theme, isOpen } = useAppContext();
+  const [pageLoading, setPageLoading] = useState(true);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -147,7 +150,8 @@ export default function WorkOrderDetail() {
           'Content-Type': 'application/json',
         },
       });
-      setHistory(await historyRes.json());
+      const updatedHistory = await historyRes.json();
+      setHistory(updatedHistory.results);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
     } finally {
@@ -191,7 +195,8 @@ export default function WorkOrderDetail() {
         },
       });
       
-      setHistory(await historyRes.json());
+      const updatedHistory = await historyRes.json();
+      setHistory(updatedHistory.results);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
     } finally {
@@ -208,7 +213,10 @@ export default function WorkOrderDetail() {
   const handleCloseWorkOrder = async (closed: boolean, remarks: string) => {
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:8000/api/workorders/${workOrder.id}/close/`, {
+      setError(null); // Clear any previous errors
+      
+      // First close the work order
+      const closeResponse = await fetch(`http://localhost:8000/api/workorders/${workOrder.id}/close/`, {
         method: 'POST',
         headers: {
           'Authorization': `Token ${token}`,
@@ -220,18 +228,29 @@ export default function WorkOrderDetail() {
         })
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
+      if (!closeResponse.ok) {
+        const errorData = await closeResponse.json();
         throw new Error(errorData.error || 'Failed to close work order');
       }
 
-      // Refresh data
-      const updatedOrder = await response.json();
+      // Get the updated work order
+      const updatedOrder = await closeResponse.json();
       setWorkOrder(updatedOrder);
       
-      // Refresh history
-      const historyRes = await fetch(`http://localhost:8000/api/workorders/${id}/history/`);
-      setHistory(await historyRes.json());
+      // Now fetch the updated history
+      const historyRes = await fetch(`http://localhost:8000/api/workorders/${id}/history/`, {
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!historyRes.ok) {
+        throw new Error('Failed to fetch updated history');
+      }
+
+      const updatedHistory = await historyRes.json();
+      setHistory(updatedHistory.results);
       
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to close work order');
@@ -241,7 +260,7 @@ export default function WorkOrderDetail() {
   };
 
   if (loading) return <div className="container mx-auto px-4 py-8">Loading...</div>;
-  if (error) return <div className="container mx-auto px-4 py-8 text-red-500">{error}</div>;
+  if (error) return <div className="container mx-auto px-4 py-8 text-red-500 dark:text-red-400">{error}</div>;
   if (!workOrder) return <div className="container mx-auto px-4 py-8">Work order not found</div>;
 
   const canEdit = (
@@ -250,8 +269,8 @@ export default function WorkOrderDetail() {
   );
 
   const canAccept = user.profile.is_utilities && workOrder.accepted === null;
-  const canComplete = user.profile.is_utilities && workOrder.accepted === true && workOrder.work_status.work_status === 'In_Process';
-  const canClose = user.profile.is_production && workOrder.work_status.work_status === 'Completed';
+  const canComplete = user.profile.is_utilities && workOrder.accepted === true && (workOrder.work_status && workOrder.work_status.work_status === 'In_Process');
+  const canClose = user.profile.is_production && (workOrder.work_status && workOrder.work_status.work_status === 'Completed') && (!workOrder.closed || workOrder.closed.closed !== "Yes");
 
   const renderHistoryItem = (item: WorkOrderHistory) => {
     const getActionColor = (action: string) => {
@@ -353,376 +372,532 @@ export default function WorkOrderDetail() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Work Order Info */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white shadow rounded-lg p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-400">Details</h2>
-              {canEdit && !editMode && (
-                <button
-                  onClick={() => setEditMode(true)}
-                  className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-                >
-                  Edit
-                </button>
-              )}
+<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  {/* Main Work Order Info */}
+  <div className="lg:col-span-2 space-y-6">
+    <div className={`shadow rounded-lg p-6 ${
+      theme === 'dark' ? 'bg-gray-800' : 'bg-white'
+    }`}>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className={`text-xl font-semibold ${
+          theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+        }`}>Details</h2>
+        {canEdit && !editMode && (
+          <button
+            onClick={() => setEditMode(true)}
+            className={`px-3 py-1 text-sm text-white rounded ${
+              theme === 'dark' ? 'bg-blue-700 hover:bg-blue-800' : 'bg-blue-600 hover:bg-blue-700'
+            }`}
+          >
+            Edit
+          </button>
+        )}
+      </div>
+
+      {editMode ? (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {user.profile.is_production && (
+            <>
+              <div>
+                <label className={`block text-sm font-medium ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                }`}>Problem</label>
+                <textarea
+                  name="problem"
+                  className={`mt-1 block w-full border rounded-md shadow-sm p-2 ${
+                    theme === 'dark' 
+                      ? 'bg-gray-700 border-gray-600 text-gray-200' 
+                      : 'bg-white border-gray-300 text-gray-900'
+                  }`}
+                  value={formData.problem || workOrder.problem}
+                  onChange={handleChange}
+                  disabled={!canEdit}
+                />
+              </div>
+            </>
+          )}
+
+          {user.profile.is_utilities && (
+            <>
+              <div>
+                <label className={`block text-sm font-medium ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                }`}>Assigned To</label>
+                <input
+                  type="text"
+                  name="assigned_to"
+                  className={`mt-1 block w-full border rounded-md shadow-sm p-2 ${
+                    theme === 'dark' 
+                      ? 'bg-gray-700 border-gray-600 text-gray-200' 
+                      : 'bg-white border-gray-300 text-gray-900'
+                  }`}
+                  value={formData.assigned_to}
+                  onChange={handleChange}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm font-medium ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                }`}>Target Date</label>
+                <input
+                  type="date"
+                  name="target_date"
+                  className={`mt-1 block w-full border rounded-md shadow-sm p-2 ${
+                    theme === 'dark' 
+                      ? 'bg-gray-700 border-gray-600 text-gray-200' 
+                      : 'bg-white border-gray-300 text-gray-900'
+                  }`}
+                  value={formData.target_date}
+                  onChange={handleChange}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm font-medium ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                }`}>Remarks</label>
+                <textarea
+                  name="remarks"
+                  className={`mt-1 block w-full border rounded-md shadow-sm p-2 ${
+                    theme === 'dark' 
+                      ? 'bg-gray-700 border-gray-600 text-gray-200' 
+                      : 'bg-white border-gray-300 text-gray-900'
+                  }`}
+                  value={formData.remarks}
+                  onChange={handleChange}
+                />
+              </div>
+            </>
+          )}
+
+          <div className="flex justify-end space-x-4">
+            <button
+              type="button"
+              onClick={() => setEditMode(false)}
+              className={`px-4 py-2 border rounded-md shadow-sm text-sm font-medium ${
+                theme === 'dark' 
+                  ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
+                  : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className={`px-4 py-2 border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                theme === 'dark' ? 'bg-blue-700 hover:bg-blue-800' : 'bg-blue-600 hover:bg-blue-700'
+              }`}
+            >
+              Save Changes
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="space-y-4">
+          <div>
+            <p className={`text-sm ${
+              theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+            }`}>Problem</p>
+            <p className={`mt-1 ${
+              theme === 'dark' ? 'text-gray-200' : 'text-gray-900'
+            }`}>{workOrder.problem}</p>
+          </div>
+          <div>
+            <p className={`text-sm ${
+              theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+            }`}>Equipment</p>
+            <p className={`mt-1 ${
+              theme === 'dark' ? 'text-gray-200' : 'text-gray-900'
+            }`}>
+              {workOrder.equipment.machine} ({workOrder.equipment.machine_type.machine_type})
+            </p>
+          </div>
+          {workOrder.part && (
+            <div>
+              <p className={`text-sm ${
+                theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+              }`}>Part</p>
+              <p className={`mt-1 ${
+                theme === 'dark' ? 'text-gray-200' : 'text-gray-900'
+              }`}>
+                {workOrder.part.name} ({workOrder.part.part_type.part_type})
+              </p>
             </div>
+          )}
+          <div>
+            <p className={`text-sm ${
+              theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+            }`}>Status</p>
+            <p className="mt-1">
+              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                workOrder.closed?.closed === 'Yes' 
+                  ? theme === 'dark' 
+                    ? 'bg-purple-900 text-purple-200' 
+                    : 'bg-purple-100 text-purple-800' :
+                !workOrder.work_status
+                  ? theme === 'dark'
+                    ? 'bg-gray-700 text-gray-300'
+                    : 'bg-gray-200 text-gray-800' :
+                workOrder.work_status.work_status === 'Pending' 
+                  ? theme === 'dark' 
+                    ? 'bg-yellow-900 text-yellow-200' 
+                    : 'bg-yellow-100 text-yellow-800' : 
+                workOrder.work_status.work_status === 'Completed' 
+                  ? theme === 'dark' 
+                    ? 'bg-green-900 text-green-200' 
+                    : 'bg-green-100 text-green-800' :
+                workOrder.work_status.work_status === 'Rejected' 
+                  ? theme === 'dark' 
+                    ? 'bg-red-900 text-red-200' 
+                    : 'bg-red-100 text-red-800' :
+                  theme === 'dark' 
+                    ? 'bg-blue-900 text-blue-200' 
+                    : 'bg-blue-100 text-blue-800'
+              }`}>
+                {workOrder.closed?.closed === 'Yes' ? 'Closed' : 
+                 !workOrder.work_status ? 'Not Specified' : 
+                 workOrder.work_status.work_status}
+              </span>
+            </p>
+          </div>
+          {workOrder.assigned_to && (
+            <div>
+              <p className={`text-sm ${
+                theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+              }`}>Assigned To</p>
+              <p className={`mt-1 ${
+                theme === 'dark' ? 'text-gray-200' : 'text-gray-900'
+              }`}>{workOrder.assigned_to}</p>
+            </div>
+          )}
+          {workOrder.target_date && (
+            <div>
+              <p className={`text-sm ${
+                theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+              }`}>Target Date</p>
+              <p className={`mt-1 ${
+                theme === 'dark' ? 'text-gray-200' : 'text-gray-900'
+              }`}>{format(new Date(workOrder.target_date), 'PP')}</p>
+            </div>
+          )}
+          {workOrder.remarks && (
+            <div>
+              <p className={`text-sm ${
+                theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+              }`}>Remarks</p>
+              <p className={`mt-1 ${
+                theme === 'dark' ? 'text-gray-200' : 'text-gray-900'
+              }`}>{workOrder.remarks}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
 
-            {editMode ? (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {user.profile.is_production && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-400">Problem</label>
-                      <textarea
-                        name="problem"
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-400"
-                        value={formData.problem || workOrder.problem}
-                        onChange={handleChange}
-                        disabled={!canEdit}
-                      />
-                    </div>
-                  </>
-                )}
-
-                {user.profile.is_utilities && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Assigned To</label>
-                      <input
-                        type="text"
-                        name="assigned_to"
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-400"
-                        value={formData.assigned_to}
-                        onChange={handleChange}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Target Date</label>
-                      <input
-                        type="date"
-                        name="target_date"
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-400"
-                        value={formData.target_date}
-                        onChange={handleChange}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Remarks</label>
-                      <textarea
-                        name="remarks"
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-400"
-                        value={formData.remarks}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </>
-                )}
-
-                <div className="flex justify-end space-x-4">
+    {/* Action Buttons */}
+    <div className={`shadow rounded-lg p-6 ${
+      theme === 'dark' ? 'bg-gray-800' : 'bg-white'
+    }`}>
+      <h2 className={`text-xl font-semibold mb-4 ${
+        theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+      }`}>Actions</h2>
+      <div className="flex flex-wrap gap-4">
+        {/* Acceptance Flow */}
+        {canAccept && (
+          <>
+            {showAcceptanceForm ? (
+              <div className="w-full space-y-4">
+                <div>
+                  <label className={`block text-sm font-medium ${
+                    theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                  }`}>Assigned To</label>
+                  <input
+                    type="text"
+                    name="assigned_to"
+                    className={`mt-1 block w-full border rounded-md shadow-sm p-2 ${
+                      theme === 'dark' 
+                        ? 'bg-gray-700 border-gray-600 text-gray-200' 
+                        : 'bg-white border-gray-300 text-gray-900'
+                    }`}
+                    value={acceptanceFormData.assigned_to}
+                    onChange={(e) => setAcceptanceFormData({...acceptanceFormData, assigned_to: e.target.value})}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className={`block text-sm font-medium ${
+                    theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                  }`}>Target Date</label>
+                  <input
+                    type="date"
+                    name="target_date"
+                    className={`mt-1 block w-full border rounded-md shadow-sm p-2 ${
+                      theme === 'dark' 
+                        ? 'bg-gray-700 border-gray-600 text-gray-200' 
+                        : 'bg-white border-gray-300 text-gray-900'
+                    }`}
+                    value={acceptanceFormData.target_date}
+                    onChange={(e) => setAcceptanceFormData({...acceptanceFormData, target_date: e.target.value})}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className={`block text-sm font-medium ${
+                    theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                  }`}>Remarks</label>
+                  <textarea
+                    name="remarks"
+                    className={`mt-1 block w-full border rounded-md shadow-sm p-2 ${
+                      theme === 'dark' 
+                        ? 'bg-gray-700 border-gray-600 text-gray-200' 
+                        : 'bg-white border-gray-300 text-gray-900'
+                    }`}
+                    value={acceptanceFormData.remarks}
+                    onChange={(e) => setAcceptanceFormData({...acceptanceFormData, remarks: e.target.value})}
+                  />
+                </div>
+                <div className="flex gap-4">
                   <button
-                    type="button"
-                    onClick={() => setEditMode(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    onClick={() => setShowAcceptanceForm(false)}
+                    className={`px-4 py-2 border rounded-md shadow-sm text-sm font-medium ${
+                      theme === 'dark' 
+                        ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
                   >
                     Cancel
                   </button>
                   <button
-                    type="submit"
-                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                    onClick={() => handleAction('accept', acceptanceFormData)}
+                    className={`px-4 py-2 text-white rounded ${
+                      theme === 'dark' ? 'bg-green-700 hover:bg-green-800' : 'bg-green-600 hover:bg-green-700'
+                    }`}
                   >
-                    Save Changes
+                    Confirm Acceptance
                   </button>
                 </div>
-              </form>
+              </div>
             ) : (
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-gray-700">Problem</p>
-                  <p className="mt-1 text-gray-400">{workOrder.problem}</p>
+              <>
+                <button
+                  onClick={() => setShowAcceptanceForm(true)}
+                  className={`px-4 py-2 text-white rounded ${
+                    theme === 'dark' ? 'bg-green-700 hover:bg-green-800' : 'bg-green-600 hover:bg-green-700'
+                  }`}
+                >
+                  Accept Work Order
+                </button>
+                <button
+                  onClick={() => handleAction('reject')}
+                  className={`px-4 py-2 text-white rounded ${
+                    theme === 'dark' ? 'bg-red-700 hover:bg-red-800' : 'bg-red-600 hover:bg-red-700'
+                  }`}
+                >
+                  Reject Work Order
+                </button>
+              </>
+            )}
+          </>
+        )}
+
+        {/* Completion Button */}
+        {canComplete && (
+          <button
+            onClick={() => handleAction('complete')}
+            className={`px-4 py-2 text-white rounded ${
+              theme === 'dark' ? 'bg-blue-700 hover:bg-blue-800' : 'bg-blue-600 hover:bg-blue-700'
+            }`}
+          >
+            Mark as Completed
+          </button>
+        )}
+
+        {/* Close Work Order Dialog */}
+        {canClose && (
+          <>
+            <button
+              onClick={() => setShowCloseDialog(true)}
+              className={`px-4 py-2 text-white rounded ${
+                theme === 'dark' ? 'bg-purple-700 hover:bg-purple-800' : 'bg-purple-600 hover:bg-purple-700'
+              }`}
+            >
+              Close Work Order
+            </button>
+            
+            {showCloseDialog && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className={`p-6 rounded-lg max-w-md w-full ${
+                  theme === 'dark' ? 'bg-gray-800' : 'bg-white'
+                }`}>
+                  <h3 className={`text-lg font-medium mb-4 ${
+                    theme === 'dark' ? 'text-white' : 'text-gray-900'
+                  }`}>Close Work Order</h3>
+                  
+                  <div className="mb-4">
+                    <label className={`block mb-2 ${
+                      theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                    }`}>
+                      <input 
+                        type="checkbox" 
+                        checked={closeStatus}
+                        onChange={(e) => setCloseStatus(e.target.checked)}
+                        className="mr-2"
+                      />
+                      Mark as Closed
+                    </label>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className={`block text-sm font-medium mb-1 ${
+                      theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                    }`}>Closing Remarks</label>
+                    <textarea
+                      value={closingRemarks}
+                      onChange={(e) => setClosingRemarks(e.target.value)}
+                      className={`w-full border rounded p-2 ${
+                        theme === 'dark' 
+                          ? 'bg-gray-700 border-gray-600 text-gray-200' 
+                          : 'bg-white border-gray-300 text-gray-900'
+                      }`}
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="flex justify-end space-x-2">
+                    <button
+                      onClick={() => setShowCloseDialog(false)}
+                      className={`px-4 py-2 border rounded ${
+                        theme === 'dark' 
+                          ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
+                          : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleCloseWorkOrder(closeStatus, closingRemarks);
+                        setShowCloseDialog(false);
+                      }}
+                      className={`px-4 py-2 text-white rounded ${
+                        theme === 'dark' ? 'bg-purple-700 hover:bg-purple-800' : 'bg-purple-600 hover:bg-purple-700'
+                      }`}
+                    >
+                      Confirm
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-700">Equipment</p>
-                  <p className="mt-1 text-gray-400">
-                    {workOrder.equipment.machine} ({workOrder.equipment.machine_type.machine_type})
-                  </p>
-                </div>
-                {workOrder.part && (
-                  <div>
-                    <p className="text-sm text-gray-700">Part</p>
-                    <p className="mt-1 text-gray-400">
-                      {workOrder.part.name} ({workOrder.part.part_type.part_type})
-                    </p>
-                  </div>
-                )}
-                <div>
-                  <p className="text-sm text-gray-700">Status</p>
-                  <p className="mt-1">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                      ${workOrder.work_status.work_status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : 
-                        workOrder.work_status.work_status === 'Completed' ? 'bg-green-100 text-green-800' : 
-                        'bg-blue-100 text-blue-800'}`}>
-                      {workOrder.work_status.work_status}
-                    </span>
-                  </p>
-                </div>
-                {workOrder.assigned_to && (
-                  <div>
-                    <p className="text-sm text-gray-700">Assigned To</p>
-                    <p className="mt-1 text-gray-400">{workOrder.assigned_to}</p>
-                  </div>
-                )}
-                {workOrder.target_date && (
-                  <div>
-                    <p className="text-sm text-gray-700">Target Date</p>
-                    <p className="mt-1 text-gray-400">{format(new Date(workOrder.target_date), 'PP')}</p>
-                  </div>
-                )}
-                {workOrder.remarks && (
-                  <div>
-                    <p className="text-sm text-gray-700">Remarks</p>
-                    <p className="mt-1 text-gray-400">{workOrder.remarks}</p>
-                  </div>
-                )}
               </div>
             )}
-          </div>
-
-          {/* Action Buttons */}
-          <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-4 text-gray-400">Actions</h2>
-            <div className="flex flex-wrap gap-4">
-              {/* Acceptance Flow */}
-              {canAccept && (
-                <>
-                  {showAcceptanceForm ? (
-                    <div className="w-full space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Assigned To</label>
-                        <input
-                          type="text"
-                          name="assigned_to"
-                          className="mt-1 block w-full border border-gray-400 rounded-md shadow-sm p-2 text-gray-400"
-                          value={acceptanceFormData.assigned_to}
-                          onChange={(e) => setAcceptanceFormData({...acceptanceFormData, assigned_to: e.target.value})}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Target Date</label>
-                        <input
-                          type="date"
-                          name="target_date"
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-400"
-                          value={acceptanceFormData.target_date}
-                          onChange={(e) => setAcceptanceFormData({...acceptanceFormData, target_date: e.target.value})}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Remarks</label>
-                        <textarea
-                          name="remarks"
-                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-400"
-                          value={acceptanceFormData.remarks}
-                          onChange={(e) => setAcceptanceFormData({...acceptanceFormData, remarks: e.target.value})}
-                        />
-                      </div>
-                      <div className="flex gap-4">
-                        <button
-                          onClick={() => setShowAcceptanceForm(false)}
-                          className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => handleAction('accept', acceptanceFormData)}
-                          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                        >
-                          Confirm Acceptance
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => setShowAcceptanceForm(true)}
-                        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                      >
-                        Accept Work Order
-                      </button>
-                      <button
-                        onClick={() => handleAction('reject')}
-                        className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                      >
-                        Reject Work Order
-                      </button>
-                    </>
-                  )}
-                </>
-              )}
-
-              {/* Completion Button (unchanged) */}
-              {canComplete && (
-                <button
-                  onClick={() => handleAction('complete')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                >
-                  Mark as Completed
-                </button>
-              )}
-
-              {/* Close Work Order Dialog (unchanged) */}
-              {canClose && (
-                <>
-                  <button
-                    onClick={() => setShowCloseDialog(true)}
-                    className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-                  >
-                    Close Work Order
-                  </button>
-                  
-                  {showCloseDialog && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                      <div className="bg-white p-6 rounded-lg max-w-md w-full">
-                        <h3 className="text-lg font-medium mb-4">Close Work Order</h3>
-                        
-                        <div className="mb-4">
-                          <label className="block mb-2">
-                            <input 
-                              type="checkbox" 
-                              checked={closeStatus}
-                              onChange={(e) => setCloseStatus(e.target.checked)}
-                              className="mr-2"
-                            />
-                            Mark as Closed
-                          </label>
-                        </div>
-
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium mb-1">Closing Remarks</label>
-                          <textarea
-                            value={closingRemarks}
-                            onChange={(e) => setClosingRemarks(e.target.value)}
-                            className="w-full border rounded p-2"
-                            rows={3}
-                          />
-                        </div>
-
-                        <div className="flex justify-end space-x-2">
-                          <button
-                            onClick={() => setShowCloseDialog(false)}
-                            className="px-4 py-2 border rounded"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={() => {
-                              handleCloseWorkOrder(closeStatus, closingRemarks);
-                              setShowCloseDialog(false);
-                            }}
-                            className="px-4 py-2 bg-purple-600 text-white rounded"
-                          >
-                            Confirm
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* History Sidebar */}
-        <div className="space-y-6">
-          <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-4 text-gray-400">History</h2>
-            <div className="space-y-4">
-              {historyLoading ? (
-                <div className="flex justify-center items-center py-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                </div>
-              ) : history && Array.isArray(history) && history.length === 0 ? (
-                <p className="text-sm text-gray-500">No history available</p>
-              ) : history && Array.isArray(history) ? (
-                <ul className="space-y-4">
-                  {history.map((item) => {
-                    // Format the snapshot data
-                    const formatSnapshot = (snapshot) => {
-                      if (!snapshot) return {};
-                      
-                      return Object.entries(snapshot)
-                        .filter(([_, value]) => value !== null && value !== "none" && value !== "")
-                        .reduce((acc, [key, value]) => {
-                          switch (key) {
-                            case 'closed':
-                              acc[key] = value.closed; // 'Yes' or 'No'
-                              break;
-                            case 'accepted':
-                              acc[key] = value ? 'Yes' : 'No';  // Convert boolean to Yes/No
-                              break;
-                            case 'equipment':
-                              acc[key] = `${value.machine} (${value.machine_type})`;
-                              break;
-                            case 'type_of_work':
-                              acc[key] = typeof value === 'object' ? value.type_of_work : getWorkTypeName(value);
-                              break;
-                            case 'work_status':
-                              acc[key] = value.work_status;
-                              break;
-                            case 'initiated_by':
-                              acc[key] = value.username;
-                              break;
-                            case 'initiation_date':
-                            case 'completion_date':
-                            case 'target_date':
-                              acc[key] = format(new Date(value), 'PPpp');
-                              break;
-                            default:
-                              acc[key] = value;
-                          }
-                          return acc;
-                        }, {});
-                    };
-
-                    const formattedSnapshot = formatSnapshot(item.snapshot);
-
-                    return (
-                      <li key={item.id} className="border-l-2 border-blue-500 pl-4 py-2">
-                        <div className="text-sm font-medium text-gray-700">
-                          {item.changed_by?.username || 'System'} - {item.action}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {item.timestamp && format(new Date(item.timestamp), 'PPpp')}
-                        </div>
-                        {Object.keys(formattedSnapshot).length > 0 && (
-                          <div className="mt-2 space-y-1 text-xs text-gray-700">
-                            {Object.entries(formattedSnapshot).map(([key, value]) => (
-                              <div key={key} className="grid grid-cols-3 gap-2">
-                                <span className="col-span-1 font-medium capitalize">
-                                  {key.replace(/_/g, ' ')}:
-                                </span>
-                                <span className="col-span-2">
-                                  {value}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <p className="text-sm text-red-500">Error loading history data</p>
-              )}
-            </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
+    </div>
+  </div>
+
+  {/* History Sidebar */}
+  <div className="space-y-6">
+    <div className={`shadow rounded-lg p-6 ${
+      theme === 'dark' ? 'bg-gray-800' : 'bg-white'
+    }`}>
+      <h2 className={`text-xl font-semibold mb-4 ${
+        theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+      }`}>History</h2>
+      <div className="space-y-4">
+        {historyLoading ? (
+          <div className="flex justify-center items-center py-4">
+            <div className={`animate-spin rounded-full h-8 w-8 border-b-2 ${
+              theme === 'dark' ? 'border-gray-300' : 'border-gray-900'
+            }`}></div>
+          </div>
+        ) : history && Array.isArray(history) && history.length === 0 ? (
+          <p className={`text-sm ${
+            theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+          }`}>No history available</p>
+        ) : history && Array.isArray(history) ? (
+          <ul className="space-y-4">
+            {history.map((item) => {
+              const formatSnapshot = (snapshot) => {
+                if (!snapshot) return {};
+                
+                return Object.entries(snapshot)
+                  .filter(([_, value]) => value !== null && value !== "none" && value !== "")
+                  .reduce((acc, [key, value]) => {
+                    switch (key) {
+                      case 'closed':
+                        acc[key] = value.closed;
+                        break;
+                      case 'accepted':
+                        acc[key] = value ? 'Yes' : 'No';
+                        break;
+                      case 'equipment':
+                        acc[key] = `${value.machine} (${value.machine_type})`;
+                        break;
+                      case 'type_of_work':
+                        acc[key] = typeof value === 'object' ? value.type_of_work : getWorkTypeName(value);
+                        break;
+                      case 'work_status':
+                        acc[key] = value.work_status;
+                        break;
+                      case 'initiated_by':
+                        acc[key] = value.username;
+                        break;
+                      case 'initiation_date':
+                      case 'completion_date':
+                      case 'target_date':
+                        acc[key] = format(new Date(value), 'PPpp');
+                        break;
+                      default:
+                        acc[key] = value;
+                    }
+                    return acc;
+                  }, {});
+              };
+
+              const formattedSnapshot = formatSnapshot(item.snapshot);
+
+              return (
+                <li key={item.id} className={`border-l-2 pl-4 py-2 ${
+                  theme === 'dark' ? 'border-blue-700' : 'border-blue-500'
+                }`}>
+                  <div className={`text-sm font-medium ${
+                    theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    {item.changed_by?.username || 'System'} - {item.action}
+                  </div>
+                  <div className={`text-xs ${
+                    theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                  }`}>
+                    {item.timestamp && format(new Date(item.timestamp), 'PPpp')}
+                  </div>
+                  {Object.keys(formattedSnapshot).length > 0 && (
+                    <div className={`mt-2 space-y-1 text-xs ${
+                      theme === 'dark' ? 'text-gray-400' : 'text-gray-700'
+                    }`}>
+                      {Object.entries(formattedSnapshot).map(([key, value]) => (
+                        <div key={key} className="grid grid-cols-3 gap-2">
+                          <span className="col-span-1 font-medium capitalize">
+                            {key.replace(/_/g, ' ')}:
+                          </span>
+                          <span className="col-span-2 break-all">
+                            {value}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className={`text-sm ${
+            theme === 'dark' ? 'text-red-400' : 'text-red-500'
+          }`}>Error loading history data</p>
+        )}
+      </div>
+    </div>
+  </div>
+</div>
     </div>
   );
 }

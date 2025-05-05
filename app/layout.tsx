@@ -9,10 +9,18 @@ import { AppProvider } from './context/AppContext';
 import { MessageProvider } from './context/MessageContext';
 import { usePathname } from 'next/navigation';
 import { AuthProvider } from './context/AuthContext';
+import ThemeWrapper from './components/ThemeWrapper';
+import ProtectedRoute from './components/ProtectedRoute';
+
+const protectedRoutes = ['/dashboard', '/workorders', '/profile']; // Add your protected routes here
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const noFooterRoutes = ['/signin', '/signin/register', '/signin/register/verify', '/dashboard'];
+
+  const isProtectedRoute = protectedRoutes.some(route => 
+    pathname?.startsWith(route)
+  );
 
   return (
     <html lang="en" className="h-full">
@@ -24,10 +32,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AppProvider>
             <MessageProvider>
               <Header />
-              <main className="flex-1">
-                {children}
-              </main>
-              {!noFooterRoutes.includes(pathname) && <Footer />}
+              <ThemeWrapper>
+                <main className="flex-1">
+                  {isProtectedRoute ? (
+                    <ProtectedRoute>
+                      {children}
+                    </ProtectedRoute>
+                  ) : (
+                    children
+                  )}
+                </main>
+              </ThemeWrapper>
+              {!noFooterRoutes.includes(pathname!) && <Footer />}
             </MessageProvider>
           </AppProvider>
         </AuthProvider>

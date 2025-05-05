@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Equipment, Part, Type_of_Work } from '../../types/workorder';
+import { useAppContext } from '../../context/AppContext';
 
 export default function CreateWorkOrder() {
   const { token } = useAuth();
@@ -25,6 +26,7 @@ export default function CreateWorkOrder() {
   const [filteredEquipment, setFilteredEquipment] = useState<Equipment[]>([]);
   const [showEquipmentDropdown, setShowEquipmentDropdown] = useState(false);
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
+  const { theme, isOpen } = useAppContext();
 
   const fetchAllEquipment = async (search = '') => {
     try {
@@ -196,24 +198,32 @@ export default function CreateWorkOrder() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">Create New Work Order</h1>
+      <h1 className={`text-2xl font-bold mb-6 ${
+        theme === 'dark' ? 'text-white' : 'text-gray-900'
+      }`}>Create New Work Order</h1>
       
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+        <div className={`px-4 py-3 rounded mb-4 ${
+          theme === 'dark' ? 'bg-red-900 border-red-700 text-red-200' : 'bg-red-100 border-red-400 text-red-700'
+        }`}>
           {error}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="problem" className="block text-sm font-medium text-gray-200">
+          <label htmlFor="problem" className={`block text-sm font-medium ${
+            theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+          }`}>
             Problem Description *
           </label>
           <textarea
             id="problem"
             name="problem"
             rows={4}
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-900"
+            className={`mt-1 block w-full border rounded-md shadow-sm p-2 ${
+              theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'
+            }`}
             value={formData.problem}
             onChange={handleChange}
             required
@@ -222,73 +232,92 @@ export default function CreateWorkOrder() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="relative">
+            <label htmlFor="equipment-search" className={`block text-sm font-medium ${
+              theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+            }`}>
+              Equipment *
+            </label>
+            <input
+              id="equipment-search"
+              type="text"
+              placeholder="Search for equipment..."
+              className={`mt-1 block w-full border rounded-md shadow-sm p-2 ${
+                theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'
+              }`}
+              value={selectedEquipment ? selectedEquipment.machine : equipmentSearch}
+              onChange={handleEquipmentSearch}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setShowEquipmentDropdown(true)}
+              onBlur={() => setTimeout(() => setShowEquipmentDropdown(false), 200)}
+              required
+            />
+            
+            {/* Selected equipment details */}
+            {selectedEquipment && (
+              <div className={`mt-1 text-sm ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+              }`}>
+                Type: {selectedEquipment.machine_type?.machine_type} | 
+                Location: {selectedEquipment.location?.area}
+              </div>
+            )}
 
-        <div className="relative">
-          <label htmlFor="equipment-search" className="block text-sm font-medium text-gray-200">
-            Equipment *
-          </label>
-          <input
-            id="equipment-search"
-            type="text"
-            placeholder="Search for equipment..."
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-900"
-            value={selectedEquipment ? selectedEquipment.machine : equipmentSearch}
-            onChange={handleEquipmentSearch}
-            onKeyDown={handleKeyDown}
-            onFocus={() => setShowEquipmentDropdown(true)}
-            onBlur={() => setTimeout(() => setShowEquipmentDropdown(false), 200)}
-            required
-          />
-          
-          {/* Selected equipment details */}
-          {selectedEquipment && (
-            <div className="mt-1 text-sm text-gray-600">
-              Type: {selectedEquipment.machine_type?.machine_type} | 
-              Location: {selectedEquipment.location?.area}
-            </div>
-          )}
-
-          {/* Equipment dropdown */}
-          {showEquipmentDropdown && !selectedEquipment && (
-            <>
-              {filteredEquipment.length > 0 ? (
-                <ul className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                  {filteredEquipment.map(equip => (
-                    <li 
-                      key={equip.id}
-                      className="px-4 py-2 hover:bg-blue-50 cursor-pointer"
-                      onClick={() => handleEquipmentSelect(equip)}
-                    >
-                      <div className="font-medium text-gray-900">{equip.machine}</div>
-                      <div className="text-sm text-gray-600">
-                        {equip.machine_type?.machine_type} - {equip.location?.area}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : equipmentSearch && (
-                <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg p-4 text-sm text-gray-500">
-                  No equipment found matching "{equipmentSearch}"
-                </div>
-              )}
-            </>
-          )}
-          
-          <input
-            type="hidden"
-            name="equipment"
-            value={formData.equipment}
-          />
-        </div>
+            {/* Equipment dropdown */}
+            {showEquipmentDropdown && !selectedEquipment && (
+              <>
+                {filteredEquipment.length > 0 ? (
+                  <ul className={`absolute z-10 mt-1 w-full border rounded-md shadow-lg max-h-60 overflow-auto ${
+                    theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'
+                  }`}>
+                    {filteredEquipment.map(equip => (
+                      <li 
+                        key={equip.id}
+                        className={`px-4 py-2 cursor-pointer ${
+                          theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-blue-50'
+                        }`}
+                        onClick={() => handleEquipmentSelect(equip)}
+                      >
+                        <div className={`font-medium ${
+                          theme === 'dark' ? 'text-gray-200' : 'text-gray-900'
+                        }`}>{equip.machine}</div>
+                        <div className={`text-sm ${
+                          theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                        }`}>
+                          {equip.machine_type?.machine_type} - {equip.location?.area}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : equipmentSearch && (
+                  <div className={`absolute z-10 mt-1 w-full border rounded-md shadow-lg p-4 text-sm ${
+                    theme === 'dark' ? 'bg-gray-800 border-gray-700 text-gray-400' : 'bg-white border-gray-300 text-gray-500'
+                  }`}>
+                    No equipment found matching "{equipmentSearch}"
+                  </div>
+                )}
+              </>
+            )}
+            
+            <input
+              type="hidden"
+              name="equipment"
+              value={formData.equipment}
+            />
+          </div>
 
           <div>
-            <label htmlFor="part" className="block text-sm font-medium text-gray-200">
+            <label htmlFor="part" className={`block text-sm font-medium ${
+              theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+            }`}>
               Part (if applicable)
             </label>
             <select
               id="part"
               name="part"
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-900"
+              className={`mt-1 block w-full border rounded-md shadow-sm p-2 ${
+                theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'
+              }`}
               value={formData.part}
               onChange={handleChange}
               disabled={!formData.equipment}
@@ -307,13 +336,17 @@ export default function CreateWorkOrder() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="type_of_work" className="block text-sm font-medium text-gray-200">
+            <label htmlFor="type_of_work" className={`block text-sm font-medium ${
+              theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+            }`}>
               Type of Work *
             </label>
             <select
               id="type_of_work"
               name="type_of_work"
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-900"
+              className={`mt-1 block w-full border rounded-md shadow-sm p-2 ${
+                theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'
+              }`}
               value={formData.type_of_work}
               onChange={handleChange}
               required
@@ -328,13 +361,17 @@ export default function CreateWorkOrder() {
           </div>
 
           <div>
-            <label htmlFor="department" className="block text-sm font-medium text-gray-200">
+            <label htmlFor="department" className={`block text-sm font-medium ${
+              theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+            }`}>
               Assign to Department *
             </label>
             <select
               id="department"
               name="department"
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-gray-900"
+              className={`mt-1 block w-full border rounded-md shadow-sm p-2 ${
+                theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-300 text-gray-900'
+              }`}
               value={formData.department}
               onChange={handleChange}
               required
@@ -350,14 +387,18 @@ export default function CreateWorkOrder() {
           <button
             type="button"
             onClick={() => router.push('/dashboard')}
-            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className={`px-4 py-2 border rounded-md shadow-sm text-sm font-medium ${
+              theme === 'dark' ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+            }`}
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+            className={`px-4 py-2 border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+              theme === 'dark' ? 'bg-blue-700 hover:bg-blue-800' : 'bg-blue-600 hover:bg-blue-700'
+            } disabled:opacity-50`}
           >
             {loading ? 'Creating...' : 'Create Work Order'}
           </button>
