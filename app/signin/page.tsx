@@ -54,7 +54,8 @@ export default function SignInPage() {
       login(data.token, {
         id: data.user_id,
         email: data.email,
-        profile: data.profile
+        profile: data.profile,
+        username: data.username
       });
       router.push('/dashboard');
     } catch (error) {
