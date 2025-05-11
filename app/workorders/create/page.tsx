@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { Equipment, Part, Type_of_Work } from '../../types/workorder';
+import { Equipment, Part, TypeOfWork } from '../../../types/workorder';
 import { useAppContext } from '../../context/AppContext';
 
 export default function CreateWorkOrder() {
@@ -19,14 +19,14 @@ export default function CreateWorkOrder() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [partsList, setPartsList] = useState<Part[]>([]);
-  const [workTypes, setWorkTypes] = useState<Type_of_Work[]>([]);
+  const [workTypes, setWorkTypes] = useState<TypeOfWork[]>([]);
   const [isFetching, setIsFetching] = useState(true);
   const [equipmentSearch, setEquipmentSearch] = useState('');
   const [allEquipment, setAllEquipment] = useState<Equipment[]>([]);
   const [filteredEquipment, setFilteredEquipment] = useState<Equipment[]>([]);
   const [showEquipmentDropdown, setShowEquipmentDropdown] = useState(false);
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
-  const { theme, isOpen } = useAppContext();
+  const { theme } = useAppContext();
 
   const fetchAllEquipment = async (search = '') => {
     try {
@@ -293,7 +293,7 @@ export default function CreateWorkOrder() {
                   <div className={`absolute z-10 mt-1 w-full border rounded-md shadow-lg p-4 text-sm ${
                     theme === 'dark' ? 'bg-gray-800 border-gray-700 text-gray-400' : 'bg-white border-gray-300 text-gray-500'
                   }`}>
-                    No equipment found matching "{equipmentSearch}"
+                    No equipment found matching `{equipmentSearch}`
                   </div>
                 )}
               </>

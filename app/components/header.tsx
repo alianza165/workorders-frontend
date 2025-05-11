@@ -2,17 +2,11 @@ import { Fragment } from 'react';
 import { Disclosure, Menu, Transition } from '@headlessui/react';
 import { UserIcon } from '@heroicons/react/20/solid';
 import { Bars3Icon, BellIcon, XMarkIcon, SunIcon, MoonIcon, HomeIcon, UserGroupIcon, FolderIcon, CalendarIcon, ClipboardDocumentIcon, ChartPieIcon } from '@heroicons/react/24/outline';
-import React, { useContext } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext'; // Replace next-auth with your auth context
 import LogoutButton from './logout';
-
-const navigation = [
-  { name: 'Home', href: '/', current: true },
-  { name: 'Products', href: '/projects', current: false },
-];
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ');

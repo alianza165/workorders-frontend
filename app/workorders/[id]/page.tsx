@@ -3,33 +3,43 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useParams, useRouter } from 'next/navigation';
-import { WorkOrder, WorkOrderHistory } from '../../types/workorder';
+import { WorkOrder, WorkOrderHistoryItem, TypeOfWork, WorkOrderSnapshot, Equipment, WorkStatus, User } from '../../../types/workorder';
 import { format } from 'date-fns';
 import { useAppContext } from '../../context/AppContext';
 
 export default function WorkOrderDetail() {
+
+  interface WorkOrderFormData {
+    problem?: string;
+    assigned_to?: string;
+    target_date?: string;
+    remarks?: string;
+    // Add any other fields that might be in your form
+  }
+  interface FormattedSnapshot {
+    [key: string]: string | null | undefined;
+  }
   const { id } = useParams();
   const { token, user, isAuthenticated } = useAuth();
   const router = useRouter();
   const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [history, setHistory] = useState<WorkOrderHistory[]>([]);
+  const [historyLoading] = useState(false);
+  const [history, setHistory] = useState<WorkOrderHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
-  const [formData, setFormData] = useState<any>({});
+  const [formData, setFormData] = useState<WorkOrderFormData>({});
   const [showCloseDialog, setShowCloseDialog] = useState(false);
   const [closeStatus, setCloseStatus] = useState(true);
   const [closingRemarks, setClosingRemarks] = useState('');
-  const [workTypes, setWorkTypes] = useState<Type_of_Work[]>([]);
+  const [workTypes, setWorkTypes] = useState<TypeOfWork[]>([]);
   const [acceptanceFormData, setAcceptanceFormData] = useState({
     assigned_to: '',
     target_date: '',
     remarks: ''
   });
   const [showAcceptanceForm, setShowAcceptanceForm] = useState(false);
-  const { theme, isOpen } = useAppContext();
-  const [pageLoading, setPageLoading] = useState(true);
+  const { theme } = useAppContext();
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -122,7 +132,7 @@ export default function WorkOrderDetail() {
       setLoading(true);
 
       const cleanedPayload = Object.fromEntries(
-        Object.entries(formData).filter(([_, value]) => value !== "")
+        Object.entries(formData).filter(([value]) => value !== "")
       );
       const response = await fetch(`http://localhost:8000/api/workorders/${workOrder.id}/`, {
         method: 'PATCH',
@@ -159,7 +169,7 @@ export default function WorkOrderDetail() {
     }
   };
 
-  const handleAction = async (action: string, formData = null) => {
+  const handleAction = async (action: string, formData: { assigned_to: string; target_date: string; remarks: string } | null = null) => {
     if (!workOrder) return;
 
     try {
@@ -205,10 +215,6 @@ export default function WorkOrderDetail() {
   };
 
   // Add this handler for the acceptance form
-  const handleAcceptanceSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    handleAction('accept', acceptanceFormData);
-  };
 
   const handleCloseWorkOrder = async (closed: boolean, remarks: string) => {
     try {
@@ -216,7 +222,12 @@ export default function WorkOrderDetail() {
       setError(null); // Clear any previous errors
       
       // First close the work order
-      const closeResponse = await fetch(`http://localhost:8000/api/workorders/${workOrder.id}/close/`, {
+        if (!workOrder) {
+          // Handle the case where workOrder is null
+          console.error('WorkOrder is null');
+          return;
+        }
+        const closeResponse = await fetch(`http://localhost:8000/api/workorders/${workOrder.id}/close/`, {
         method: 'POST',
         headers: {
           'Authorization': `Token ${token}`,
@@ -263,96 +274,34 @@ export default function WorkOrderDetail() {
   if (error) return <div className="container mx-auto px-4 py-8 text-red-500 dark:text-red-400">{error}</div>;
   if (!workOrder) return <div className="container mx-auto px-4 py-8">Work order not found</div>;
 
-  const canEdit = (
-    (user.profile.is_production && workOrder.initiated_by.id === user.id && workOrder.accepted === null) ||
-    (user.profile.is_utilities && workOrder.accepted === true && workOrder.work_status.work_status !== 'Completed')
-  );
+const canEdit = (
+  (
+    (user?.profile?.is_production ?? false) && 
+    (workOrder?.initiated_by?.id === user?.id) && 
+    (workOrder?.accepted === null)  // This is correct for null check
+  ) || (
+    (user?.profile?.is_utilities ?? false) && 
+    (workOrder?.accepted === true) &&  // This is the problematic line
+    (workOrder?.work_status?.work_status !== 'Completed')
+  )
+) ?? false;
 
-  const canAccept = user.profile.is_utilities && workOrder.accepted === null;
-  const canComplete = user.profile.is_utilities && workOrder.accepted === true && (workOrder.work_status && workOrder.work_status.work_status === 'In_Process');
-  const canClose = user.profile.is_production && (workOrder.work_status && workOrder.work_status.work_status === 'Completed') && (!workOrder.closed || workOrder.closed.closed !== "Yes");
+const canAccept = (
+  (user?.profile?.is_utilities ?? false) && 
+  (workOrder?.accepted === null)
+) ?? false;
 
-  const renderHistoryItem = (item: WorkOrderHistory) => {
-    const getActionColor = (action: string) => {
-      switch (action.toLowerCase()) {
-        case 'created': return 'bg-blue-100 text-blue-800';
-        case 'accepted': return 'bg-green-100 text-green-800';
-        case 'rejected': return 'bg-red-100 text-red-800';
-        case 'completed': return 'bg-purple-100 text-purple-800';
-        case 'closed': return 'bg-gray-100 text-gray-800';
-        default: return 'bg-yellow-100 text-yellow-800';
-      }
-    };
+const canComplete = (
+  (user?.profile?.is_utilities ?? false) && 
+  (workOrder?.accepted === true) && 
+  (workOrder?.work_status?.work_status === 'In_Process')
+) ?? false;
 
-    const getActionIcon = (action: string) => {
-      switch (action.toLowerCase()) {
-        case 'created': return '📝';
-        case 'accepted': return '✅';
-        case 'rejected': return '❌';
-        case 'completed': return '🏁';
-        case 'closed': return '🔒';
-        default: return '✏️';
-      }
-    };
-
-    const renderSnapshotDetails = () => {
-      if (!item.snapshot) return null;
-      
-      const excludedFields = ['id', 'timestamp', 'workorder'];
-      const importantFields = ['remarks', 'assigned_to', 'target_date', 'work_status', 'closed'];
-      
-      return (
-        <div className="mt-2 text-xs text-gray-700 space-y-1">
-          {Object.entries(item.snapshot)
-            .filter(([key]) => !excludedFields.includes(key))
-            .sort(([a], [b]) => importantFields.includes(b) ? 1 : importantFields.includes(a) ? -1 : 0)
-            .map(([key, value]) => {
-              if (value === null || value === undefined) return null;
-              
-              let displayValue = value;
-              if (key === 'timestamp' || key === 'target_date' || key === 'completion_date') {
-                displayValue = format(new Date(value as string), 'PPpp');
-              } else if (typeof value === 'object') {
-                displayValue = JSON.stringify(value, null, 2);
-              }
-
-              return (
-                <div key={key} className="flex">
-                  <span className="font-medium min-w-[100px]">{key.replace('_', ' ')}:</span>
-                  <span className="ml-2 break-all">
-                    {displayValue}
-                  </span>
-                </div>
-              );
-            })}
-        </div>
-      );
-    };
-
-    return (
-      <li key={item.id} className="border-l-2 border-blue-500 pl-4 py-3">
-        <div className="flex items-start">
-          <span className="mr-2">{getActionIcon(item.action)}</span>
-          <div className="flex-1">
-            <div className="flex justify-between items-start">
-              <div>
-                <span className={`px-2 py-1 text-xs font-medium rounded-full ${getActionColor(item.action)}`}>
-                  {item.action}
-                </span>
-                <span className="ml-2 text-sm font-medium">
-                  {item.changed_by?.username || 'System'}
-                </span>
-              </div>
-              <span className="text-xs text-gray-500">
-                {format(new Date(item.timestamp), 'PPpp')}
-              </span>
-            </div>
-            {renderSnapshotDetails()}
-          </div>
-        </div>
-      </li>
-    );
-  };
+const canClose = (
+  (user?.profile?.is_production ?? false) && 
+  (workOrder?.work_status?.work_status === 'Completed') && 
+  (workOrder?.closed?.closed !== "Yes")
+) ?? false;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -396,7 +345,7 @@ export default function WorkOrderDetail() {
 
       {editMode ? (
         <form onSubmit={handleSubmit} className="space-y-4">
-          {user.profile.is_production && (
+          {user?.profile?.is_production && (
             <>
               <div>
                 <label className={`block text-sm font-medium ${
@@ -417,7 +366,7 @@ export default function WorkOrderDetail() {
             </>
           )}
 
-          {user.profile.is_utilities && (
+          {user?.profile?.is_utilities && (
             <>
               <div>
                 <label className={`block text-sm font-medium ${
@@ -816,38 +765,40 @@ export default function WorkOrderDetail() {
         ) : history && Array.isArray(history) ? (
           <ul className="space-y-4">
             {history.map((item) => {
-              const formatSnapshot = (snapshot) => {
+              const formatSnapshot = (snapshot: WorkOrderSnapshot | null): FormattedSnapshot => {
                 if (!snapshot) return {};
                 
                 return Object.entries(snapshot)
-                  .filter(([_, value]) => value !== null && value !== "none" && value !== "")
-                  .reduce((acc, [key, value]) => {
+                  .filter(([, value]) => value !== null && value !== "none" && value !== "")
+                  .reduce((acc: FormattedSnapshot, [key, value]) => {
                     switch (key) {
                       case 'closed':
-                        acc[key] = value.closed;
+                        acc[key] = (value as { closed: 'Yes' | 'No' })?.closed ?? null;
                         break;
                       case 'accepted':
                         acc[key] = value ? 'Yes' : 'No';
                         break;
                       case 'equipment':
-                        acc[key] = `${value.machine} (${value.machine_type})`;
+                        acc[key] = `${(value as Equipment).machine} (${(value as Equipment).machine_type.machine_type})`;
                         break;
                       case 'type_of_work':
-                        acc[key] = typeof value === 'object' ? value.type_of_work : getWorkTypeName(value);
+                        acc[key] = typeof value === 'object' 
+                          ? (value as TypeOfWork).type_of_work 
+                          : getWorkTypeName(value as number);
                         break;
                       case 'work_status':
-                        acc[key] = value.work_status;
+                        acc[key] = (value as WorkStatus).work_status;
                         break;
                       case 'initiated_by':
-                        acc[key] = value.username;
+                        acc[key] = (value as User).username;
                         break;
                       case 'initiation_date':
                       case 'completion_date':
                       case 'target_date':
-                        acc[key] = format(new Date(value), 'PPpp');
+                        acc[key] = format(new Date(value as string), 'PPpp');
                         break;
                       default:
-                        acc[key] = value;
+                        acc[key] = value as string | null;
                     }
                     return acc;
                   }, {});
