@@ -13,11 +13,9 @@ export default function Dashboard() {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [nextPage, setNextPage] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [departmentFilter, setDepartmentFilter] = useState<string | null>(null);
-  const { theme, isOpen } = useAppContext();
+  const { theme } = useAppContext();
   const [pageLoading, setPageLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -27,7 +25,7 @@ const fetchWorkOrders = useCallback(async (page: number = 1) => {
     setLoading(true);
     setError(null);
     
-    let apiUrl = new URL('http://localhost:8000/api/workorders/');
+    const apiUrl = new URL('http://localhost:8000/api/workorders/');
     apiUrl.searchParams.append('page', page.toString());
     
     if (statusFilter) {
@@ -68,12 +66,6 @@ const fetchWorkOrders = useCallback(async (page: number = 1) => {
       }
     }
   }, [isAuthenticated, authLoading, router]);
-
-  const loadMore = () => {
-    if (nextPage) {
-      fetchWorkOrders(nextPage);
-    }
-  };
 
   // Add this to your Dashboard component where the row click is handled
   const handleRowClick = (orderId: number) => {
@@ -258,7 +250,7 @@ const fetchWorkOrders = useCallback(async (page: number = 1) => {
                           order.work_status.work_status === 'Rejected' ? 'bg-red-100 text-red-800' :
                           'bg-blue-100 text-blue-800'}`}>
                         {order.closed?.closed === 'Yes' ? 'Closed' : 
-                         order.work_status ? order.work_status.work_status : 'Not Specified'}
+                         order.work_status?.work_status || 'Not Specified'}
                       </span>
                     </td>
                     <td className={`px-6 py-4 whitespace-nowrap text-sm ${

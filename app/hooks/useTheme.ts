@@ -1,6 +1,6 @@
 'use client';
 
-import { useAppContext } from '@/context/AppContext';
+import { useAppContext } from '../context/AppContext';
 
 export function useTheme() {
   const { theme, isOpen } = useAppContext();

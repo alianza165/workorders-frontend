@@ -17,7 +17,7 @@ export default function SignInPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading] = useState(false);
 
   const themeClass2 = theme === 'dark' ? 'text-white' : 'text-black';
   const logoClass2 = theme === 'dark' 
@@ -66,7 +66,7 @@ export default function SignInPage() {
   return (
     <div className={marginLeft}>
       <div className="sm:mx-auto sm:w-full sm:max-w-sm mt-10">
-        <img
+        <Image
           alt="Your Company"
           src={logoClass2}
           className="mx-auto h-6 w-auto"
