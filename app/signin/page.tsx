@@ -35,7 +35,7 @@ export default function SignInPage() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:8000/api-token-auth/', {
+      const response = await fetch('https://www.technologyhax.com/backend/api-token-auth/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -67,6 +67,8 @@ export default function SignInPage() {
     <div className={marginLeft}>
       <div className="sm:mx-auto sm:w-full sm:max-w-sm mt-10">
         <Image
+          width={100}
+          height={100}
           alt="Your Company"
           src={logoClass2}
           className="mx-auto h-6 w-auto"

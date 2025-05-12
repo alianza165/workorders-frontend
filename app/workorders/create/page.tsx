@@ -30,7 +30,7 @@ export default function CreateWorkOrder() {
 
   const fetchAllEquipment = async (search = '') => {
     try {
-      let url = 'http://localhost:8000/api/equipment/';
+      let url = 'https://www.technologyhax.com/backend/api/equipment/';
       if (search) {
         url += `?search=${encodeURIComponent(search)}`;
       }
@@ -69,13 +69,13 @@ export default function CreateWorkOrder() {
 
         // Then fetch other data in parallel
         const [partsRes, workTypesRes] = await Promise.all([
-          fetch('http://localhost:8000/api/parts/', {
+          fetch('https://www.technologyhax.com/backend/api/parts/', {
             headers: {
               'Authorization': `Token ${token}`,
               'Content-Type': 'application/json',
             },
           }),
-          fetch('http://localhost:8000/api/work-types/', {
+          fetch('https://www.technologyhax.com/backend/api/work-types/', {
             headers: {
               'Authorization': `Token ${token}`,
               'Content-Type': 'application/json',
@@ -159,7 +159,7 @@ export default function CreateWorkOrder() {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:8000/api/workorders/', {
+      const response = await fetch('https://www.technologyhax.com/backend/api/workorders/', {
         method: 'POST',
         headers: {
           'Authorization': `Token ${token}`,
