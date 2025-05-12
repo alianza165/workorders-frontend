@@ -58,7 +58,7 @@ export default function WorkOrderDetail() {
         setError(null);
         
         // First fetch work types
-        const workTypesRes = await fetch('http://localhost:8000/api/work-types/', {
+        const workTypesRes = await fetch('https://www.technologyhax.com/backend/api/work-types/', {
           headers: {
             'Authorization': `Token ${token}`,
             'Content-Type': 'application/json',
@@ -71,13 +71,13 @@ export default function WorkOrderDetail() {
 
         // Then fetch work order and history
         const [orderRes, historyRes] = await Promise.all([
-          fetch(`http://localhost:8000/api/workorders/${id}/`, {
+          fetch(`https://www.technologyhax.com/backend/api/workorders/${id}/`, {
             headers: {
               'Authorization': `Token ${token}`,
               'Content-Type': 'application/json',
             },
           }),
-          fetch(`http://localhost:8000/api/workorders/${id}/history/`, {
+          fetch(`https://www.technologyhax.com/backend/api/workorders/${id}/history/`, {
             headers: {
               'Authorization': `Token ${token}`,
               'Content-Type': 'application/json',
@@ -134,7 +134,7 @@ export default function WorkOrderDetail() {
       const cleanedPayload = Object.fromEntries(
         Object.entries(formData).filter(([value]) => value !== "")
       );
-      const response = await fetch(`http://localhost:8000/api/workorders/${workOrder.id}/`, {
+      const response = await fetch(`https://www.technologyhax.com/backend/api/workorders/${workOrder.id}/`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Token ${token}`,
@@ -154,7 +154,7 @@ export default function WorkOrderDetail() {
       setWorkOrder(updatedOrder);
       setEditMode(false);
       // Refresh history to show the update
-      const historyRes = await fetch(`http://localhost:8000/api/workorders/${id}/history/`, {
+      const historyRes = await fetch(`https://www.technologyhax.com/backend/api/workorders/${id}/history/`, {
         headers: {
           'Authorization': `Token ${token}`,
           'Content-Type': 'application/json',
@@ -176,8 +176,8 @@ export default function WorkOrderDetail() {
       setLoading(true);
       
       const endpoint = action === 'accept' 
-        ? `http://localhost:8000/api/workorders/${workOrder.id}/accept/`
-        : `http://localhost:8000/api/workorders/${workOrder.id}/${action}/`;
+        ? `https://www.technologyhax.com/backend/api/workorders/${workOrder.id}/accept/`
+        : `https://www.technologyhax.com/backend/api/workorders/${workOrder.id}/${action}/`;
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -198,7 +198,7 @@ export default function WorkOrderDetail() {
       setAcceptanceFormData({ assigned_to: '', target_date: '', remarks: '' });
       
       // Refresh history
-      const historyRes = await fetch(`http://localhost:8000/api/workorders/${id}/history/`, {
+      const historyRes = await fetch(`https://www.technologyhax.com/backend/api/workorders/${id}/history/`, {
         headers: {
           'Authorization': `Token ${token}`,
           'Content-Type': 'application/json',
@@ -227,7 +227,7 @@ export default function WorkOrderDetail() {
           console.error('WorkOrder is null');
           return;
         }
-        const closeResponse = await fetch(`http://localhost:8000/api/workorders/${workOrder.id}/close/`, {
+        const closeResponse = await fetch(`https://www.technologyhax.com/backend/api/workorders/${workOrder.id}/close/`, {
         method: 'POST',
         headers: {
           'Authorization': `Token ${token}`,
@@ -249,7 +249,7 @@ export default function WorkOrderDetail() {
       setWorkOrder(updatedOrder);
       
       // Now fetch the updated history
-      const historyRes = await fetch(`http://localhost:8000/api/workorders/${id}/history/`, {
+      const historyRes = await fetch(`https://www.technologyhax.com/backend/api/workorders/${id}/history/`, {
         headers: {
           'Authorization': `Token ${token}`,
           'Content-Type': 'application/json',

@@ -25,7 +25,7 @@ const fetchWorkOrders = useCallback(async (page: number = 1) => {
     setLoading(true);
     setError(null);
     
-    const apiUrl = new URL('http://localhost:8000/api/workorders/');
+    const apiUrl = new URL('https://www.technologyhax.com/backend/api/workorders/');
     apiUrl.searchParams.append('page', page.toString());
     
     if (statusFilter) {
@@ -70,7 +70,7 @@ const fetchWorkOrders = useCallback(async (page: number = 1) => {
   // Add this to your Dashboard component where the row click is handled
   const handleRowClick = (orderId: number) => {
     // Prefetch the data before navigation for better UX
-    fetch(`http://localhost:8000/api/workorders/${orderId}/check-access/`, {
+    fetch(`https://www.technologyhax.com/backend/api/workorders/${orderId}/check-access/`, {
       headers: {
         'Authorization': `Token ${token}`,
         'Content-Type': 'application/json',
