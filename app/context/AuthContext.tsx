@@ -67,6 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(userData);
     }
     setToken(newToken);
+    router.push('/dashboard');
     console.log(userData)
   }, []);
 
