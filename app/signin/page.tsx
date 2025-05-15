@@ -64,7 +64,7 @@ export default function SignInPage() {
   };
 
   return (
-    <div className={marginLeft}>
+    <div>
       <div className="sm:mx-auto sm:w-full sm:max-w-sm mt-10">
         <Image
           width={100}

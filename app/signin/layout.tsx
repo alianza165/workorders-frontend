@@ -14,7 +14,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const marginLeft = isOpen ? 'md:ml-60' : 'md:ml-10';
 
   return (
-    <section className={`${themeClass} ${marginLeft} transition-all duration-300 m-auto overflow-hidden`}>
+    <section className={`${themeClass} transition-all duration-300 m-auto overflow-hidden`}>
       <div className={`m-auto grid grid-cols-1 lg:grid-cols-2 px-6 lg:px-8 lg:mx-0 lg:max-w-none`}>
         <div>
           {children}

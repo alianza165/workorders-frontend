@@ -1,4 +1,3 @@
-// components/ThemeWrapper.tsx
 "use client";
 
 import { useAppContext } from '../context/AppContext';
@@ -6,11 +5,17 @@ import { useAppContext } from '../context/AppContext';
 export default function ThemeWrapper({ children }: { children: React.ReactNode }) {
   const { theme, isOpen } = useAppContext();
 
-  const themeClass = theme === 'dark' ? 'text-white bg-black' : 'text-black bg-white';
-  const marginLeft = isOpen ? 'md:ml-60' : 'md:ml-10';
-
   return (
-    <div className={`min-h-screen ${themeClass} ${marginLeft}`}>
+    <div 
+      className={`
+        min-h-screen
+        ${theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-white text-gray-900'}
+        transition-all duration-300 ease-in-out
+      `}
+      style={{
+        marginLeft: isOpen ? '14rem' : '0rem' // Exact rem values
+      }}
+    >
       {children}
     </div>
   );
