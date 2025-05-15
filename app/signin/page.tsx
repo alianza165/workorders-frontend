@@ -12,7 +12,7 @@ export default function SignInPage() {
   const router = useRouter();
   const { message, messageType, clearMessage } = useMessage();
   const { login } = useAuth();
-  const { theme, isOpen } = useAppContext();
+  const { theme } = useAppContext();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,7 +23,6 @@ export default function SignInPage() {
   const logoClass2 = theme === 'dark' 
     ? 'https://ducaqjqbmh7lv.cloudfront.net/mysite/inverted_minilogo1.png' 
     : 'https://ducaqjqbmh7lv.cloudfront.net/mysite/minilogo1.png';
-  const marginLeft = isOpen ? 'md:ml-60' : 'md:ml-10';
 
   useEffect(() => {
     if (message) {
