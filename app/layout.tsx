@@ -10,7 +10,6 @@ import { MessageProvider } from './context/MessageContext';
 import { usePathname, useRouter } from 'next/navigation';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ThemeWrapper from './components/ThemeWrapper';
-import ProtectedRoute from './components/ProtectedRoute';
 import { useEffect } from 'react';
 
 const protectedRoutes = ['/dashboard', '/workorders', '/profile'];

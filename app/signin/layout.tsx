@@ -8,10 +8,9 @@ interface DashboardLayoutProps {
 }
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { theme, isOpen } = useAppContext();
+  const { theme } = useAppContext();
 
   const themeClass = theme === 'dark' ? 'bg-black' : 'bg-white';
-  const marginLeft = isOpen ? 'md:ml-60' : 'md:ml-10';
 
   return (
     <section className={`${themeClass} transition-all duration-300 m-auto overflow-hidden`}>
