@@ -31,14 +31,38 @@ export default function SignInPage() {
     }
   }, [message, clearMessage]);
 
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch('https://www.technologyhax.com/backend/api-token-auth/', {
+      const csrfResponse = await fetch('http://localhost:8000/backend/get-csrf-token/', {
+        credentials: 'include', // Required for cookies
+      });
+      
+      // Get token from both headers and response body for debugging
+      const headerToken = csrfResponse.headers.get('X-CSRFToken');
+      const bodyData = await csrfResponse.json();
+      const bodyToken = bodyData.csrfToken;
+      
+      console.log('CSRF Token from headers:', headerToken);
+      console.log('CSRF Token from body:', bodyToken);
+      
+      // Use the token from headers if available, otherwise fall back to body
+      const csrfToken = headerToken || bodyToken;
+      
+      if (!csrfToken) {
+        throw new Error('No CSRF token received');
+      }
+
+      console.log('Using CSRF Token:', csrfToken);
+      
+      const response = await fetch('http://localhost:8000/backend/api-token-auth/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken,
         },
+        credentials: 'include', // Important for cookies
         body: JSON.stringify({
           username: email,
           password: password
