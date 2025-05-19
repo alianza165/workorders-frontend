@@ -35,7 +35,7 @@ export default function SignInPage() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const csrfResponse = await fetch('http://localhost:8000/backend/get-csrf-token/', {
+      const csrfResponse = await fetch('https://www.technologyhax.com/backend/get-csrf-token/', {
         credentials: 'include', // Required for cookies
       });
       
@@ -56,7 +56,7 @@ export default function SignInPage() {
 
       console.log('Using CSRF Token:', csrfToken);
       
-      const response = await fetch('http://localhost:8000/backend/api-token-auth/', {
+      const response = await fetch('https://www.technologyhax.com/backend/api-token-auth/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
