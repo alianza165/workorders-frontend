@@ -30,7 +30,7 @@ export default function CreateWorkOrder() {
 
   const fetchAllEquipment = async (search = '') => {
     try {
-      let url = 'https://www.technologyhax.com/backend/api/equipment/';
+      let url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/equipment/`;
       if (search) {
         url += `?search=${encodeURIComponent(search)}`;
       }
@@ -69,13 +69,13 @@ export default function CreateWorkOrder() {
 
         // Then fetch other data in parallel
         const [partsRes, workTypesRes] = await Promise.all([
-          fetch('https://www.technologyhax.com/backend/api/parts/', {
+          fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/parts/`, {
             headers: {
               'Authorization': `Token ${token}`,
               'Content-Type': 'application/json',
             },
           }),
-          fetch('https://www.technologyhax.com/backend/api/work-types/', {
+          fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/work-types/`, {
             headers: {
               'Authorization': `Token ${token}`,
               'Content-Type': 'application/json',
@@ -159,7 +159,7 @@ export default function CreateWorkOrder() {
     setError(null);
 
     try {
-      const response = await fetch('https://www.technologyhax.com/backend/api/workorders/', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/workorders/`, {
         method: 'POST',
         headers: {
           'Authorization': `Token ${token}`,
