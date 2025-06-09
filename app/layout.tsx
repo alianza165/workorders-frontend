@@ -42,23 +42,40 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   );
 }
 
+
 function AuthRedirectHandler({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, authLoading } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
-    if (!authLoading) {
-      // If user is authenticated and tries to access auth routes, redirect to dashboard
-      if (isAuthenticated && authRoutes.some(route => pathname?.startsWith(route))) {
-        router.push('/dashboard');
-      }
-      // If user is not authenticated and tries to access protected routes, redirect to signin
-      else if (!isAuthenticated && protectedRoutes.some(route => pathname?.startsWith(route))) {
-        router.push('/signin');
-      }
+    if (authLoading) return; // Wait until auth is initialized
+
+    const isProtected = protectedRoutes.some(route => 
+      pathname?.startsWith(route)
+    );
+    const isAuthRoute = authRoutes.some(route => 
+      pathname?.startsWith(route)
+    );
+
+    if (isAuthenticated && isAuthRoute) {
+      router.push('/projects');
+    } else if (!isAuthenticated && isProtected) {
+      sessionStorage.setItem('redirectUrl', pathname || '');
+      router.push('/signin');
     }
   }, [isAuthenticated, authLoading, pathname, router]);
+
+  if (authLoading) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-white z-50">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-gray-700 text-lg font-medium">Loading, please wait...</p>
+        </div>
+      </div>
+    );
+  }
 
   return <>{children}</>;
 }
