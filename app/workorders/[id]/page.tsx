@@ -125,8 +125,7 @@ export default function WorkOrderDetail() {
       setLoading(true);
 
       const cleanedPayload = Object.fromEntries(
-        Object.entries(formData)
-          .filter(([_, value]) => value !== "" && value !== null && value !== undefined)
+        Object.entries(formData).filter(([, value]) => Boolean(value))
       );
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/workorders/${workOrder.id}/`, {
         method: 'PATCH',
