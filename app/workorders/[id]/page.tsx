@@ -42,15 +42,8 @@ export default function WorkOrderDetail() {
   const { theme } = useAppContext();
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push('/signin');
-      return;
-    }
 
-    if (!token || !id) {
-      router.push('/signin');
-      return;
-    }
+    if (!id) return;
 
     const fetchInitialData = async () => {
       try {
