@@ -59,7 +59,7 @@ function AuthRedirectHandler({ children }: { children: React.ReactNode }) {
     );
 
     if (isAuthenticated && isAuthRoute) {
-      router.push('/projects');
+      router.push('/dashboard');
     } else if (!isAuthenticated && isProtected) {
       sessionStorage.setItem('redirectUrl', pathname || '');
       router.push('/signin');

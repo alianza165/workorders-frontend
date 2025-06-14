@@ -373,7 +373,7 @@ const canClose = (
                       ? 'bg-gray-700 border-gray-600 text-gray-200' 
                       : 'bg-white border-gray-300 text-gray-900'
                   }`}
-                  value={formData.assigned_to}
+                  value={formData.assigned_to || ''}  // Ensure fallback to empty string
                   onChange={handleChange}
                 />
               </div>
@@ -389,7 +389,7 @@ const canClose = (
                       ? 'bg-gray-700 border-gray-600 text-gray-200' 
                       : 'bg-white border-gray-300 text-gray-900'
                   }`}
-                  value={formData.target_date}
+                  value={formData.target_date || ''}  // Ensure fallback to empty string
                   onChange={handleChange}
                 />
               </div>
@@ -404,7 +404,7 @@ const canClose = (
                       ? 'bg-gray-700 border-gray-600 text-gray-200' 
                       : 'bg-white border-gray-300 text-gray-900'
                   }`}
-                  value={formData.remarks}
+                  value={formData.remarks || ''}  // Ensure fallback to empty string
                   onChange={handleChange}
                 />
               </div>
@@ -469,37 +469,42 @@ const canClose = (
             <p className={`text-sm ${
               theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
             }`}>Status</p>
-            <p className="mt-1">
-              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                workOrder.closed?.closed === 'Yes' 
-                  ? theme === 'dark' 
-                    ? 'bg-purple-900 text-purple-200' 
-                    : 'bg-purple-100 text-purple-800' :
-                !workOrder.work_status
-                  ? theme === 'dark'
-                    ? 'bg-gray-700 text-gray-300'
-                    : 'bg-gray-200 text-gray-800' :
-                workOrder.work_status.work_status === 'Pending' 
-                  ? theme === 'dark' 
-                    ? 'bg-yellow-900 text-yellow-200' 
-                    : 'bg-yellow-100 text-yellow-800' : 
-                workOrder.work_status.work_status === 'Completed' 
-                  ? theme === 'dark' 
-                    ? 'bg-green-900 text-green-200' 
-                    : 'bg-green-100 text-green-800' :
-                workOrder.work_status.work_status === 'Rejected' 
-                  ? theme === 'dark' 
-                    ? 'bg-red-900 text-red-200' 
-                    : 'bg-red-100 text-red-800' :
-                  theme === 'dark' 
-                    ? 'bg-blue-900 text-blue-200' 
-                    : 'bg-blue-100 text-blue-800'
-              }`}>
-                {workOrder.closed?.closed === 'Yes' ? 'Closed' : 
-                 !workOrder.work_status ? 'Not Specified' : 
-                 workOrder.work_status.work_status}
-              </span>
-            </p>
+              <p className="mt-1">
+                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                  workOrder.closed?.closed === 'Yes' 
+                    ? theme === 'dark' 
+                      ? 'bg-purple-900 text-purple-200' 
+                      : 'bg-purple-100 text-purple-800' :
+                  workOrder.accepted === false
+                    ? theme === 'dark'
+                      ? 'bg-gray-500 text-gray-100'
+                      : 'bg-gray-700 text-white' :
+                  !workOrder.work_status
+                    ? theme === 'dark'
+                      ? 'bg-gray-700 text-gray-300'
+                      : 'bg-gray-200 text-gray-800' :
+                  workOrder.work_status.work_status === 'Pending' 
+                    ? theme === 'dark' 
+                      ? 'bg-yellow-900 text-yellow-200' 
+                      : 'bg-yellow-100 text-yellow-800' : 
+                  workOrder.work_status.work_status === 'Completed' 
+                    ? theme === 'dark' 
+                      ? 'bg-green-900 text-green-200' 
+                      : 'bg-green-100 text-green-800' :
+                  workOrder.work_status.work_status === 'Rejected' 
+                    ? theme === 'dark' 
+                      ? 'bg-red-900 text-red-200' 
+                      : 'bg-red-100 text-red-800' :
+                    theme === 'dark' 
+                      ? 'bg-blue-900 text-blue-200' 
+                      : 'bg-blue-100 text-blue-800'
+                }`}>
+                  {workOrder.closed?.closed === 'Yes' ? 'Closed' : 
+                   workOrder.accepted === false ? 'Rejected' :
+                   !workOrder.work_status ? 'Not Specified' : 
+                   workOrder.work_status.work_status}
+                </span>
+              </p>
           </div>
           {workOrder.assigned_to && (
             <div>

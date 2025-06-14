@@ -243,14 +243,16 @@ const fetchWorkOrders = useCallback(async (page: number = 1) => {
                     } max-w-xs truncate`}>{order.problem}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                        ${order.closed?.closed === 'Yes' ? 'bg-purple-100 text-purple-800' :
-                          !order.work_status ? 'bg-gray-100 text-gray-800' :
-                          order.work_status.work_status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : 
-                          order.work_status.work_status === 'Completed' ? 'bg-green-100 text-green-800' :
-                          order.work_status.work_status === 'Rejected' ? 'bg-red-100 text-red-800' :
-                          'bg-blue-100 text-blue-800'}`}>
-                        {order.closed?.closed === 'Yes' ? 'Closed' : 
-                         order.work_status?.work_status || 'Not Specified'}
+                          ${order.closed?.closed === 'Yes' ? 'bg-purple-100 text-purple-800' :
+                            order.accepted === false ? 'bg-gray-600 text-white' : // Added this line for rejected orders
+                            !order.work_status ? 'bg-gray-100 text-gray-800' :
+                            order.work_status.work_status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : 
+                            order.work_status.work_status === 'Completed' ? 'bg-green-100 text-green-800' :
+                            order.work_status.work_status === 'Rejected' ? 'bg-red-100 text-red-800' :
+                            'bg-blue-100 text-blue-800'}`}>
+                          {order.closed?.closed === 'Yes' ? 'Closed' : 
+                           order.accepted === false ? 'Rejected' : // Added this line for rejected orders
+                           order.work_status?.work_status || 'Not Specified'}
                       </span>
                     </td>
                     <td className={`px-6 py-4 whitespace-nowrap text-sm ${
