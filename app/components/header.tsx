@@ -8,7 +8,6 @@ import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import LogoutButton from './logout';
 import React from 'react';
-import { forwardRef } from 'react';
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ');
