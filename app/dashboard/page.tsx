@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { WorkOrder, WorkOrderResponse } from '../../types/workorder';
 import { format } from 'date-fns';
 import { useAppContext } from '../context/AppContext';
+import { SparklesIcon } from '@heroicons/react/24/outline';
 
 export default function Dashboard() {
   const { token, user, isAuthenticated, authLoading } = useAuth();
@@ -20,41 +21,63 @@ export default function Dashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-const fetchWorkOrders = useCallback(async (page: number = 1) => {
-  try {
-    setLoading(true);
-    setError(null);
-    
-    const apiUrl = new URL(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/workorders/`);
-    apiUrl.searchParams.append('page', page.toString());
-    
-    if (statusFilter) {
-      apiUrl.searchParams.append('work_status__work_status', statusFilter);
-    }
-    if (departmentFilter) {
-      apiUrl.searchParams.append('department', departmentFilter);
-    }
 
-    const response = await fetch(apiUrl.toString(), {
-      headers: {
-        'Authorization': `Token ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
+  useEffect(() => {
+    console.log('Current work orders:', workOrders);
+  }, [workOrders]);
 
-    if (!response.ok) throw new Error('Failed to fetch work orders');
-    
-    const data: WorkOrderResponse = await response.json();
-    
-    setWorkOrders(data.results);
-    setCurrentPage(page);
-    setTotalPages(Math.ceil(data.count / 10)); // Assuming 10 items per page
-  } catch (err) {
-    setError(err instanceof Error ? err.message : 'An unknown error occurred');
-  } finally {
-    setLoading(false);
-  }
-}, [token, statusFilter, departmentFilter]);
+  const fetchWorkOrders = useCallback(async (page: number = 1) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const apiUrl = new URL(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/workorders/`);
+      apiUrl.searchParams.append('page', page.toString());
+      
+      if (statusFilter) {
+        if (statusFilter === 'Rejected') {
+          apiUrl.searchParams.append('accepted', 'false');
+        } else if (statusFilter === 'Closed') {
+          apiUrl.searchParams.append('closed__id', 1);
+        } else {
+          apiUrl.searchParams.append('work_status__work_status', statusFilter);
+        }
+      }
+      
+      if (departmentFilter) {
+        apiUrl.searchParams.append('department', departmentFilter);
+      }
+
+      const response = await fetch(apiUrl.toString(), {
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch work orders');
+      
+      const data: WorkOrderResponse = await response.json();
+      
+      // Make sure results is an array before setting state
+      if (Array.isArray(data.results)) {
+        setWorkOrders(data.results);
+        setCurrentPage(page);
+        setTotalPages(Math.ceil(data.count / 20)); // Assuming 20 items per page
+      } else {
+        setWorkOrders([]); // Fallback if results isn't an array
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      setWorkOrders([]); // Clear on error
+    } finally {
+      setLoading(false);
+    }
+  }, [token, statusFilter, departmentFilter]);
+
+  useEffect(() => {
+    fetchWorkOrders(currentPage);
+  }, [fetchWorkOrders, currentPage]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -67,9 +90,7 @@ const fetchWorkOrders = useCallback(async (page: number = 1) => {
     }
   }, [isAuthenticated, authLoading, router]);
 
-  // Add this to your Dashboard component where the row click is handled
   const handleRowClick = (orderId: number) => {
-    // Prefetch the data before navigation for better UX
     fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/workorders/${orderId}/check-access/`, {
       headers: {
         'Authorization': `Token ${token}`,
@@ -94,10 +115,12 @@ const fetchWorkOrders = useCallback(async (page: number = 1) => {
 
   const handleStatusFilterChange = (status: string | null) => {
     setStatusFilter(status);
+    setCurrentPage(1); // Reset to first page when filter changes
   };
 
   const handleDepartmentFilterChange = (department: string | null) => {
     setDepartmentFilter(department);
+    setCurrentPage(1); // Reset to first page when filter changes
   };
 
   const formatDate = (dateString: string) => {
@@ -117,21 +140,34 @@ const fetchWorkOrders = useCallback(async (page: number = 1) => {
   }
 
   return (
-    <div className={` min-h-screen`}>
+    <div className={`min-h-screen`}>
       <div className={`transition-all duration-300`}>
         <div className="container mx-auto px-4 py-8">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold">Work Orders</h1>
-            {user?.profile?.is_production && (
+            <div className="flex space-x-3">
               <button
-                onClick={handleCreateNew}
-                className={`px-4 py-2 rounded hover:opacity-90 ${
-                  theme === 'dark' ? 'bg-green-600 text-white' : 'bg-green-500 text-white'
+                onClick={() => router.push('/ai-agent')}
+                className={`flex items-center px-4 py-2 rounded hover:opacity-90 ${
+                  theme === 'dark' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-blue-500 text-white'
                 }`}
               >
-                Create New Work Order
+                <SparklesIcon className="w-5 h-5 mr-2" />
+                AI Assistant
               </button>
-            )}
+              {user?.profile?.is_production && (
+                <button
+                  onClick={handleCreateNew}
+                  className={`px-4 py-2 rounded hover:opacity-90 ${
+                    theme === 'dark' ? 'bg-green-600 text-white' : 'bg-green-500 text-white'
+                  }`}
+                >
+                  Create New Work Order
+                </button>
+              )}
+            </div>
           </div>
 
           {error && (
@@ -163,6 +199,7 @@ const fetchWorkOrders = useCallback(async (page: number = 1) => {
                 <option value="In_Process">In Process</option>
                 <option value="Completed">Completed</option>
                 <option value="Rejected">Rejected</option>
+                <option value="Closed">Closed</option>
               </select>
             </div>
 
@@ -244,14 +281,14 @@ const fetchWorkOrders = useCallback(async (page: number = 1) => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                           ${order.closed?.closed === 'Yes' ? 'bg-purple-100 text-purple-800' :
-                            order.accepted === false ? 'bg-gray-600 text-white' : // Added this line for rejected orders
+                            order.accepted === false ? 'bg-red-100 text-red-800' :
                             !order.work_status ? 'bg-gray-100 text-gray-800' :
                             order.work_status.work_status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : 
                             order.work_status.work_status === 'Completed' ? 'bg-green-100 text-green-800' :
-                            order.work_status.work_status === 'Rejected' ? 'bg-red-100 text-red-800' :
-                            'bg-blue-100 text-blue-800'}`}>
+                            order.work_status.work_status === 'In_Process' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'}`}>
                           {order.closed?.closed === 'Yes' ? 'Closed' : 
-                           order.accepted === false ? 'Rejected' : // Added this line for rejected orders
+                           order.accepted === false ? 'Rejected' :
                            order.work_status?.work_status || 'Not Specified'}
                       </span>
                     </td>
