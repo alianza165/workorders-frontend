@@ -38,7 +38,7 @@ export default function Dashboard() {
         if (statusFilter === 'Rejected') {
           apiUrl.searchParams.append('accepted', 'false');
         } else if (statusFilter === 'Closed') {
-          apiUrl.searchParams.append('closed__id', 1);
+          apiUrl.searchParams.append('closed__closed', 'Yes');
         } else {
           apiUrl.searchParams.append('work_status__work_status', statusFilter);
         }
