@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Head from 'next/head';
+import { useAuth } from '../context/AuthContext';
 
 interface SourceDocument {
   work_order_id: number;
@@ -23,6 +24,7 @@ export default function AIAssistant() {
   const [response, setResponse] = useState<AIResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { token } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,6 +36,7 @@ export default function AIAssistant() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Token ${token}`,  // Add this line
         },
         body: JSON.stringify({ prompt }),
       });

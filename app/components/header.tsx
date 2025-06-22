@@ -173,16 +173,20 @@ export default function Header() {
               </div>
               
               <div className="mt-10 space-y-2">
-                <NavLink href="/dashboard" icon={<HomeIcon className="w-6 h-6" stroke={strokeClass} />}>
-                  Dashboard
-                </NavLink>
-  <NavLink 
-    href="/ai-agent" 
-    icon={<SparklesIcon className="w-6 h-6" stroke={strokeClass} />}
-    isAiAgent={true}
-  >
-    AI Maintenance Agent
-  </NavLink>
+                {isAuthenticated && (
+                  <div className="mt-4">
+                    <NavLink href="/dashboard" icon={<HomeIcon className="w-6 h-6" stroke={strokeClass} />}>
+                      Dashboard
+                    </NavLink>
+                    <NavLink 
+                      href="/ai-agent" 
+                      icon={<SparklesIcon className="w-6 h-6" stroke={strokeClass} />}
+                      isAiAgent={true}
+                    >
+                      AI Maintenance Agent
+                    </NavLink>
+                  </div>
+                )} 
                 <NavLink href="/projects" icon={<FolderIcon className="w-6 h-6" stroke={strokeClass} />}>
                   Projects
                 </NavLink>
