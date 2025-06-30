@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { WorkOrder, WorkOrderResponse } from '../../types/workorder';
 import { format } from 'date-fns';
 import { useAppContext } from '../context/AppContext';
-import { SparklesIcon } from '@heroicons/react/24/outline';
+import { SparklesIcon, FunnelIcon, ChartPieIcon } from '@heroicons/react/24/outline';
 
 export default function Dashboard() {
   const { token, user, isAuthenticated, authLoading } = useAuth();
@@ -14,17 +14,94 @@ export default function Dashboard() {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
-  const [departmentFilter, setDepartmentFilter] = useState<string | null>(null);
   const { theme } = useAppContext();
   const [pageLoading, setPageLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [showFilters, setShowFilters] = useState(false);
+  
+  // Filter states
+  const [filters, setFilters] = useState({
+    status: null as string | null,
+    department: null as string | null,
+    locationDepartment: null as string | null,
+    typeOfWork: null as string | null,
+    equipment: null as string | null,
+    dateFrom: null as string | null,
+    dateTo: null as string | null,
+  });
 
+  interface Department {
+    id: number;
+    department: string;
+  }
+
+  interface WorkType {
+    id: number;
+    type_of_work: string;
+  }
+
+  interface Equipment {
+    id: number;
+    machine: string;
+    location?: {
+      department: Department;
+      area?: string;
+    };
+  }
+
+  // Options for filters
+  const [filterOptions, setFilterOptions] = useState({
+    departments: ['Electrical', 'Mechanical', 'Miscellaneous'],
+    locationDepartments: [] as string[],
+    typesOfWork: [] as string[],
+    equipments: [] as {id: string, name: string}[],
+  });
 
   useEffect(() => {
     console.log('Current work orders:', workOrders);
   }, [workOrders]);
+
+  // Fetch filter options
+  const fetchFilterOptions = useCallback(async () => {
+    try {
+      // Fetch location departments
+      const deptResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/departments/`, {
+        headers: {
+          'Authorization': `Token ${token}`,
+        },
+      });
+      const deptData = await deptResponse.json();
+      
+      // Fetch types of work
+      const typeResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/types-of-work/`, {
+        headers: {
+          'Authorization': `Token ${token}`,
+        },
+      });
+      const typeData = await typeResponse.json();
+      
+      // Fetch equipment
+      const equipResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/equipments/`, {
+        headers: {
+          'Authorization': `Token ${token}`,
+        },
+      });
+      const equipData = await equipResponse.json();
+
+      setFilterOptions({
+        departments: ['Electrical', 'Mechanical', 'Miscellaneous'],
+        locationDepartments: deptData.map((d: Department) => d.department),
+        typesOfWork: typeData.map((t: WorkType) => t.type_of_work),
+        equipments: equipData.map((e: Equipment) => ({ 
+          id: e.id.toString(), 
+          name: e.machine 
+        })),
+      });
+    } catch (err) {
+      console.error('Failed to fetch filter options:', err);
+    }
+  }, [token]);
 
   const fetchWorkOrders = useCallback(async (page: number = 1) => {
     try {
@@ -34,18 +111,39 @@ export default function Dashboard() {
       const apiUrl = new URL(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/workorders/`);
       apiUrl.searchParams.append('page', page.toString());
       
-      if (statusFilter) {
-        if (statusFilter === 'Rejected') {
+      // Apply filters
+      if (filters.status) {
+        if (filters.status === 'Rejected') {
           apiUrl.searchParams.append('accepted', 'false');
-        } else if (statusFilter === 'Closed') {
+        } else if (filters.status === 'Closed') {
           apiUrl.searchParams.append('closed__closed', 'Yes');
         } else {
-          apiUrl.searchParams.append('work_status__work_status', statusFilter);
+          apiUrl.searchParams.append('work_status__work_status', filters.status);
         }
       }
       
-      if (departmentFilter) {
-        apiUrl.searchParams.append('department', departmentFilter);
+      if (filters.department) {
+        apiUrl.searchParams.append('department', filters.department);
+      }
+
+      if (filters.locationDepartment) {
+        apiUrl.searchParams.append('equipment__location__department__department', filters.locationDepartment);
+      }
+
+      if (filters.typeOfWork) {
+        apiUrl.searchParams.append('type_of_work__type_of_work', filters.typeOfWork);
+      }
+
+      if (filters.equipment) {
+        apiUrl.searchParams.append('equipment__id', filters.equipment);
+      }
+
+      if (filters.dateFrom) {
+        apiUrl.searchParams.append('initiation_date__gte', filters.dateFrom);
+      }
+
+      if (filters.dateTo) {
+        apiUrl.searchParams.append('initiation_date__lte', filters.dateTo);
       }
 
       const response = await fetch(apiUrl.toString(), {
@@ -59,21 +157,20 @@ export default function Dashboard() {
       
       const data: WorkOrderResponse = await response.json();
       
-      // Make sure results is an array before setting state
       if (Array.isArray(data.results)) {
         setWorkOrders(data.results);
         setCurrentPage(page);
-        setTotalPages(Math.ceil(data.count / 20)); // Assuming 20 items per page
+        setTotalPages(Math.ceil(data.count / 20));
       } else {
-        setWorkOrders([]); // Fallback if results isn't an array
+        setWorkOrders([]);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
-      setWorkOrders([]); // Clear on error
+      setWorkOrders([]);
     } finally {
       setLoading(false);
     }
-  }, [token, statusFilter, departmentFilter]);
+  }, [token, filters]);
 
   useEffect(() => {
     fetchWorkOrders(currentPage);
@@ -86,6 +183,7 @@ export default function Dashboard() {
       } else {
         setPageLoading(false);
         fetchWorkOrders();
+        fetchFilterOptions();
       }
     }
   }, [isAuthenticated, authLoading, router]);
@@ -113,14 +211,25 @@ export default function Dashboard() {
     router.push('/workorders/create');
   };
 
-  const handleStatusFilterChange = (status: string | null) => {
-    setStatusFilter(status);
-    setCurrentPage(1); // Reset to first page when filter changes
+  const handleFilterChange = (filterName: keyof typeof filters, value: string | null) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterName]: value
+    }));
+    setCurrentPage(1);
   };
 
-  const handleDepartmentFilterChange = (department: string | null) => {
-    setDepartmentFilter(department);
-    setCurrentPage(1); // Reset to first page when filter changes
+  const resetFilters = () => {
+    setFilters({
+      status: null,
+      department: null,
+      locationDepartment: null,
+      typeOfWork: null,
+      equipment: null,
+      dateFrom: null,
+      dateTo: null,
+    });
+    setCurrentPage(1);
   };
 
   const formatDate = (dateString: string) => {
@@ -146,6 +255,28 @@ export default function Dashboard() {
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold">Work Orders</h1>
             <div className="flex space-x-3">
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`flex items-center px-4 py-2 rounded hover:opacity-90 ${
+                  theme === 'dark' 
+                    ? 'bg-gray-600 text-white' 
+                    : 'bg-gray-200 text-gray-700'
+                }`}
+              >
+                <FunnelIcon className="w-5 h-5 mr-2" />
+                {showFilters ? 'Hide Filters' : 'Show Filters'}
+              </button>
+              <button
+                onClick={() => router.push('/analytics')}
+                className={`flex items-center px-4 py-2 rounded hover:opacity-90 ${
+                  theme === 'dark' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-blue-500 text-white'
+                }`}
+              >
+                <ChartPieIcon className="w-5 h-5 mr-2" />
+                Analytics
+              </button>              
               <button
                 onClick={() => router.push('/ai-agent')}
                 className={`flex items-center px-4 py-2 rounded hover:opacity-90 ${
@@ -178,54 +309,183 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Filters */}
-          <div className="mb-6 flex flex-wrap gap-4">
-            <div>
-              <label htmlFor="status-filter" className={`block text-sm font-medium ${
-                theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
-              } mb-1`}>
-                Filter by Status
-              </label>
-              <select
-                id="status-filter"
-                className={`border rounded-md shadow-sm p-2 ${
-                  theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
-                }`}
-                value={statusFilter || ''}
-                onChange={(e) => handleStatusFilterChange(e.target.value || null)}
-              >
-                <option value="">All Statuses</option>
-                <option value="Pending">Pending</option>
-                <option value="In_Process">In Process</option>
-                <option value="Completed">Completed</option>
-                <option value="Rejected">Rejected</option>
-                <option value="Closed">Closed</option>
-              </select>
-            </div>
+          {/* Expanded Filters Section */}
+          {showFilters && (
+            <div className={`mb-6 p-4 rounded-lg ${
+              theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50'
+            }`}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Status Filter */}
+                <div>
+                  <label htmlFor="status-filter" className={`block text-sm font-medium ${
+                    theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                  } mb-1`}>
+                    Status
+                  </label>
+                  <select
+                    id="status-filter"
+                    className={`w-full border rounded-md shadow-sm p-2 ${
+                      theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                    }`}
+                    value={filters.status || ''}
+                    onChange={(e) => handleFilterChange('status', e.target.value || null)}
+                  >
+                    <option value="">All Statuses</option>
+                    <option value="Pending">Pending</option>
+                    <option value="In_Process">In Process</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Rejected">Rejected</option>
+                    <option value="Closed">Closed</option>
+                  </select>
+                </div>
 
-            {user?.profile?.is_utilities && (
-              <div>
-                <label htmlFor="department-filter" className={`block text-sm font-medium ${
-                  theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
-                } mb-1`}>
-                  Filter by Department
-                </label>
-                <select
-                  id="department-filter"
-                  className={`border rounded-md shadow-sm p-2 ${
-                    theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
-                  }`}
-                  value={departmentFilter || ''}
-                  onChange={(e) => handleDepartmentFilterChange(e.target.value || null)}
-                >
-                  <option value="">All Departments</option>
-                  <option value="Electrical">Electrical</option>
-                  <option value="Mechanical">Mechanical</option>
-                  <option value="Miscellaneous">Miscellaneous</option>
-                </select>
+                {/* Department Filter */}
+                {user?.profile?.is_utilities && (
+                  <div>
+                    <label htmlFor="department-filter" className={`block text-sm font-medium ${
+                      theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                    } mb-1`}>
+                      Work Order Department
+                    </label>
+                    <select
+                      id="department-filter"
+                      className={`w-full border rounded-md shadow-sm p-2 ${
+                        theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                      }`}
+                      value={filters.department || ''}
+                      onChange={(e) => handleFilterChange('department', e.target.value || null)}
+                    >
+                      <option value="">All Departments</option>
+                      {filterOptions.departments.map(dept => (
+                        <option key={dept} value={dept}>{dept}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Location Department Filter */}
+                <div>
+                  <label htmlFor="location-dept-filter" className={`block text-sm font-medium ${
+                    theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                  } mb-1`}>
+                    Equipment Location Department
+                  </label>
+                  <select
+                    id="location-dept-filter"
+                    className={`w-full border rounded-md shadow-sm p-2 ${
+                      theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                    }`}
+                    value={filters.locationDepartment || ''}
+                    onChange={(e) => handleFilterChange('locationDepartment', e.target.value || null)}
+                  >
+                    <option value="">All Location Departments</option>
+                    {filterOptions.locationDepartments.map(dept => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Type of Work Filter */}
+                <div>
+                  <label htmlFor="type-filter" className={`block text-sm font-medium ${
+                    theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                  } mb-1`}>
+                    Type of Work
+                  </label>
+                  <select
+                    id="type-filter"
+                    className={`w-full border rounded-md shadow-sm p-2 ${
+                      theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                    }`}
+                    value={filters.typeOfWork || ''}
+                    onChange={(e) => handleFilterChange('typeOfWork', e.target.value || null)}
+                  >
+                    <option value="">All Types</option>
+                    {filterOptions.typesOfWork.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Equipment Filter */}
+                <div>
+                  <label htmlFor="equipment-filter" className={`block text-sm font-medium ${
+                    theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                  } mb-1`}>
+                    Equipment
+                  </label>
+                  <select
+                    id="equipment-filter"
+                    className={`w-full border rounded-md shadow-sm p-2 ${
+                      theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                    }`}
+                    value={filters.equipment || ''}
+                    onChange={(e) => handleFilterChange('equipment', e.target.value || null)}
+                  >
+                    <option value="">All Equipment</option>
+                    {filterOptions.equipments.map(equip => (
+                      <option key={equip.id} value={equip.id}>{equip.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Date From Filter */}
+                <div>
+                  <label htmlFor="date-from-filter" className={`block text-sm font-medium ${
+                    theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                  } mb-1`}>
+                    From Date
+                  </label>
+                  <input
+                    type="date"
+                    id="date-from-filter"
+                    className={`w-full border rounded-md shadow-sm p-2 ${
+                      theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                    }`}
+                    value={filters.dateFrom || ''}
+                    onChange={(e) => handleFilterChange('dateFrom', e.target.value || null)}
+                  />
+                </div>
+
+                {/* Date To Filter */}
+                <div>
+                  <label htmlFor="date-to-filter" className={`block text-sm font-medium ${
+                    theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                  } mb-1`}>
+                    To Date
+                  </label>
+                  <input
+                    type="date"
+                    id="date-to-filter"
+                    className={`w-full border rounded-md shadow-sm p-2 ${
+                      theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'
+                    }`}
+                    value={filters.dateTo || ''}
+                    onChange={(e) => handleFilterChange('dateTo', e.target.value || null)}
+                  />
+                </div>
               </div>
-            )}
-          </div>
+
+              <div className="flex justify-end mt-4 space-x-2">
+                <button
+                  onClick={resetFilters}
+                  className={`px-4 py-2 rounded hover:opacity-90 ${
+                    theme === 'dark' ? 'bg-gray-600 text-white' : 'bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  Reset Filters
+                </button>
+                <button
+                  onClick={() => fetchWorkOrders(1)}
+                  className={`px-4 py-2 rounded hover:opacity-90 ${
+                    theme === 'dark' ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white'
+                  }`}
+                >
+                  Apply Filters
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="overflow-x-auto">
             <table className={`min-w-full border ${
@@ -254,6 +514,9 @@ export default function Dashboard() {
                   <th className={`px-6 py-3 text-left text-xs font-medium ${
                     theme === 'dark' ? 'text-gray-300' : 'text-gray-500'
                   } uppercase tracking-wider`}>Department</th>
+                  <th className={`px-6 py-3 text-left text-xs font-medium ${
+                    theme === 'dark' ? 'text-gray-300' : 'text-gray-500'
+                  } uppercase tracking-wider`}>Location Dept</th>
                 </tr>
               </thead>
               <tbody className={`divide-y ${
@@ -306,6 +569,11 @@ export default function Dashboard() {
                       theme === 'dark' ? 'text-gray-300' : 'text-gray-500'
                     }`}>
                       {order.department}
+                    </td>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${
+                      theme === 'dark' ? 'text-gray-300' : 'text-gray-500'
+                    }`}>
+                      {order.equipment.location?.department?.department || 'N/A'}
                     </td>
                   </tr>
                 ))}

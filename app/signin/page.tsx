@@ -17,7 +17,7 @@ export default function SignInPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [isLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // Changed to use setter
 
   const themeClass2 = theme === 'dark' ? 'text-white' : 'text-black';
   const logoClass2 = theme === 'dark' 
@@ -31,38 +31,32 @@ export default function SignInPage() {
     }
   }, [message, clearMessage]);
 
-
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true); // Set loading to true when sign in starts
+    setError(""); // Clear any previous errors
+    
     try {
       const csrfResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/get-csrf-token/`, {
-        credentials: 'include', // Required for cookies
+        credentials: 'include',
       });
       
-      // Get token from both headers and response body for debugging
       const headerToken = csrfResponse.headers.get('X-CSRFToken');
       const bodyData = await csrfResponse.json();
       const bodyToken = bodyData.csrfToken;
-      
-      console.log('CSRF Token from headers:', headerToken);
-      console.log('CSRF Token from body:', bodyToken);
-      
-      // Use the token from headers if available, otherwise fall back to body
       const csrfToken = headerToken || bodyToken;
       
       if (!csrfToken) {
         throw new Error('No CSRF token received');
       }
 
-      console.log('Using CSRF Token:', csrfToken);
-      
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api-token-auth/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-CSRFToken': csrfToken,
         },
-        credentials: 'include', // Important for cookies
+        credentials: 'include',
         body: JSON.stringify({
           username: email,
           password: password
@@ -70,7 +64,8 @@ export default function SignInPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Login failed');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Login failed');
       }
 
       const data = await response.json();
@@ -83,6 +78,8 @@ export default function SignInPage() {
       router.push('/dashboard');
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Login failed');
+    } finally {
+      setIsLoading(false); // Ensure loading is set to false when done
     }
   };
 
@@ -120,6 +117,7 @@ export default function SignInPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading}
                 className="px-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
               />
             </div>
@@ -144,6 +142,7 @@ export default function SignInPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                disabled={isLoading}
                 className="px-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
               />
             </div>
@@ -155,7 +154,15 @@ export default function SignInPage() {
               disabled={isLoading}
               className={`flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
-              {isLoading ? 'Signing in...' : 'Sign in'}
+              {isLoading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Signing in...
+                </>
+              ) : 'Sign in'}
             </button>
           </div>
 

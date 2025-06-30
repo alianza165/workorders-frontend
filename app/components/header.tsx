@@ -17,7 +17,6 @@ export default function Header() {
   const { user, isAuthenticated } = useAuth();
   const { theme, isOpen, toggleSidebar, toggleTheme } = useAppContext();
 
-  // Theme-dependent variables
   const logoClass = theme === 'dark' 
     ? 'https://ducaqjqbmh7lv.cloudfront.net/mysite/logo_dark1.png' 
     : 'https://ducaqjqbmh7lv.cloudfront.net/mysite/logo.png';
@@ -29,18 +28,6 @@ export default function Header() {
   const sideBarBg = theme === 'dark' ? "bg-neutral-800 text-slate-200" : "bg-teal-400 text-slate-900";
   const bgClass = `url(${bgImage})`;
 
-  // Fix for mobile scrolling issue
-  React.useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'auto';
-    }
-    return () => {
-      document.body.style.overflow = 'auto';
-    };
-  }, [isOpen]);
-
   return (
     <div className="bg-fixed bg-cover bg-center divide-neutral-300" style={{ backgroundImage: bgClass }}>
       <Disclosure as="nav">
@@ -49,38 +36,38 @@ export default function Header() {
             <div className="mx-auto max-w-8xl px-2 sm:px-6 lg:px-8 z-20">
               <div className="relative flex h-12 items-center justify-between">
                 <div className="flex flex-1 items-center justify-center sm:items-stretch sm:justify-start">
-                <Transition
-                  show={!isOpen}
-                  enter="transition ease-out duration-300"
-                  enterFrom="transform opacity-0 -translate-x-full"
-                  enterTo="transform opacity-100 translate-x-0"
-                  leave="transition ease-in duration-300"
-                  leaveFrom="transform opacity-100 translate-x-0"
-                  leaveTo="transform opacity-0 -translate-x-full"
-                >
-                  <div> {/* This div will receive the ref automatically */}
-                    <Link href="/" passHref legacyBehavior>
-                      <a>
-                        <Image
-                          className="block w-auto lg:hidden ml-10"
-                          src={logoClass}
-                          width={80}
-                          height={20}
-                          alt="Logo"
-                          priority
-                        />
-                        <Image
-                          className="hidden w-auto lg:block ml-10"
-                          src={logoClass}
-                          width={80}
-                          height={20}
-                          alt="Logo"
-                          priority
-                        />
-                      </a>
-                    </Link>
-                  </div>
-                </Transition>
+                  <Transition
+                    show={!isOpen}
+                    enter="transition ease-out duration-300"
+                    enterFrom="transform opacity-0 -translate-x-full"
+                    enterTo="transform opacity-100 translate-x-0"
+                    leave="transition ease-in duration-300"
+                    leaveFrom="transform opacity-100 translate-x-0"
+                    leaveTo="transform opacity-0 -translate-x-full"
+                  >
+                    <div>
+                      <Link href="/" passHref legacyBehavior>
+                        <a>
+                          <Image
+                            className="block w-auto lg:hidden ml-10"
+                            src={logoClass}
+                            width={80}
+                            height={20}
+                            alt="Logo"
+                            priority
+                          />
+                          <Image
+                            className="hidden w-auto lg:block ml-10"
+                            src={logoClass}
+                            width={80}
+                            height={20}
+                            alt="Logo"
+                            priority
+                          />
+                        </a>
+                      </Link>
+                    </div>
+                  </Transition>
                   <div className="absolute inset-y-0 left-0 flex items-center sm:hidden">
                     <button 
                       onClick={toggleSidebar} 
@@ -133,8 +120,8 @@ export default function Header() {
             <div 
               className={`z-10 fixed inset-y-0 left-0 transform ${
                 isOpen ? 'translate-x-0' : 'md:-translate-x-48 -translate-x-full'
-              } transition-transform ${sideBarBg} duration-300 ease-in-out md:w-60 w-full px-4 overflow-y-auto`}
-              style={{ height: '100vh' }}
+              } transition-transform ${sideBarBg} duration-300 ease-in-out md:w-60 w-full px-4 overflow-y-auto`} 
+              style={{ height: '100vh', overscrollBehavior: 'contain' }}
             >
               <div className="flex my-2 md:my-0">
                 <button 
@@ -171,48 +158,26 @@ export default function Header() {
                   </a>
                 </Link>
               </div>
-              
+
               <div className="mt-10 space-y-2">
                 {isAuthenticated && (
                   <div className="mt-4">
-                    <NavLink href="/dashboard" icon={<HomeIcon className="w-6 h-6" stroke={strokeClass} />}>
-                      Dashboard
-                    </NavLink>
-                    <NavLink 
-                      href="/ai-agent" 
-                      icon={<SparklesIcon className="w-6 h-6" stroke={strokeClass} />}
-                      isAiAgent={true}
-                    >
-                      AI Maintenance Agent
-                    </NavLink>
+                    <NavLink href="/dashboard" icon={<HomeIcon className="w-6 h-6" stroke={strokeClass} />}>Dashboard</NavLink>
+                    <NavLink href="/ai-agent" icon={<SparklesIcon className="w-6 h-6" stroke={strokeClass} />} isAiAgent={true}>AI Maintenance Agent</NavLink>
                   </div>
                 )} 
-                <NavLink href="/projects" icon={<FolderIcon className="w-6 h-6" stroke={strokeClass} />}>
-                  Projects
-                </NavLink>
-                <NavLink href="/calendar" icon={<CalendarIcon className="w-6 h-6" stroke={strokeClass} />}>
-                  Calendar
-                </NavLink>
-                <NavLink href="/documents" icon={<ClipboardDocumentIcon className="w-6 h-6" stroke={strokeClass} />}>
-                  Documents
-                </NavLink>
-                <NavLink href="/reports" icon={<ChartPieIcon className="w-6 h-6" stroke={strokeClass} />}>
-                  Reports
-                </NavLink>
-                <NavLink href="/electrical" icon={<UserGroupIcon className="w-6 h-6" stroke={strokeClass} />}>
-                  Electrical
-                </NavLink>
+                <NavLink href="/analytics" icon={<FolderIcon className="w-6 h-6" stroke={strokeClass} />}>Analytics</NavLink>
+                <NavLink href="/projects" icon={<FolderIcon className="w-6 h-6" stroke={strokeClass} />}>Projects</NavLink>
+                <NavLink href="/calendar" icon={<CalendarIcon className="w-6 h-6" stroke={strokeClass} />}>Calendar</NavLink>
+                <NavLink href="/documents" icon={<ClipboardDocumentIcon className="w-6 h-6" stroke={strokeClass} />}>Documents</NavLink>
+                <NavLink href="/reports" icon={<ChartPieIcon className="w-6 h-6" stroke={strokeClass} />}>Reports</NavLink>
+                <NavLink href="/electrical" icon={<UserGroupIcon className="w-6 h-6" stroke={strokeClass} />}>Electrical</NavLink>
               </div>
 
               {!isAuthenticated && (
                 <div className="mt-4">
                   <Link href="/signin" passHref legacyBehavior>
-                    <a 
-                      onClick={toggleSidebar}
-                      className="block hover:bg-teal-600 p-2 rounded-md cursor-pointer"
-                    >
-                      Sign In
-                    </a>
+                    <a onClick={toggleSidebar} className="block hover:bg-teal-600 p-2 rounded-md cursor-pointer">Sign In</a>
                   </Link>
                 </div>
               )} 
@@ -236,50 +201,22 @@ function NavLink({ href, icon, children, isAiAgent = false }: {
         {icon}
         <span className="pl-4">{children}</span>
         {isAiAgent && (
-          <span className="ml-auto bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full dark:bg-blue-900 dark:text-blue-300">
-            New
-          </span>
+          <span className="ml-auto bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full dark:bg-blue-900 dark:text-blue-300">New</span>
         )}
       </a>
     </Link>
   );
 }
 
-// Extracted components for better readability and reusability
 function ThemeToggle({ theme, toggleTheme }: { theme: string; toggleTheme: (theme: string) => void }) {
   return (
     <div className="flex items-center space-x-2">
-      <input
-        type="radio"
-        name="theme"
-        value="light"
-        id="lightMode"
-        className="hidden"
-        onChange={() => toggleTheme('light')}
-        checked={theme === 'light'}
-      />
-      <label
-        htmlFor="lightMode"
-        className="flex items-center cursor-pointer space-x-1"
-        aria-label="Light mode"
-      >
+      <input type="radio" name="theme" value="light" id="lightMode" className="hidden" onChange={() => toggleTheme('light')} checked={theme === 'light'} />
+      <label htmlFor="lightMode" className="flex items-center cursor-pointer space-x-1" aria-label="Light mode">
         <SunIcon className="w-6 h-6 text-yellow-500" />
       </label>
-      
-      <input
-        type="radio"
-        name="theme"
-        value="dark"
-        id="darkMode"
-        className="hidden"
-        onChange={() => toggleTheme('dark')}
-        checked={theme === 'dark'}
-      />
-      <label
-        htmlFor="darkMode"
-        className="flex items-center cursor-pointer space-x-1"
-        aria-label="Dark mode"
-      >
+      <input type="radio" name="theme" value="dark" id="darkMode" className="hidden" onChange={() => toggleTheme('dark')} checked={theme === 'dark'} />
+      <label htmlFor="darkMode" className="flex items-center cursor-pointer space-x-1" aria-label="Dark mode">
         <MoonIcon className="w-6 h-6 text-gray-800" />
       </label>
     </div>
@@ -295,31 +232,19 @@ function UserMenu() {
           <UserIcon className="h-7 w-7 rounded-full bg-white" aria-hidden="true" />
         </Menu.Button>
       </div>
-      <Transition
-        as={Fragment}
-        enter="transition ease-out duration-100"
-        enterFrom="transform opacity-0 scale-95"
-        enterTo="transform opacity-100 scale-100"
-        leave="transition ease-in duration-75"
-        leaveFrom="transform opacity-100 scale-100"
-        leaveTo="transform opacity-0 scale-95"
-      >
+      <Transition as={Fragment} enter="transition ease-out duration-100" enterFrom="transform opacity-0 scale-95" enterTo="transform opacity-100 scale-100" leave="transition ease-in duration-75" leaveFrom="transform opacity-100 scale-100" leaveTo="transform opacity-0 scale-95">
         <Menu.Items className="absolute right-0 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
           <Menu.Item>
             {({ active }) => (
               <Link href="/profile" passHref legacyBehavior>
-                <a className={classNames(active ? 'bg-gray-100' : '', 'block px-4 py-2 text-sm text-gray-700')}>
-                  Your Profile
-                </a>
+                <a className={classNames(active ? 'bg-gray-100' : '', 'block px-4 py-2 text-sm text-gray-700')}>Your Profile</a>
               </Link>
             )}
           </Menu.Item>
           <Menu.Item>
             {({ active }) => (
               <Link href="/settings" passHref legacyBehavior>
-                <a className={classNames(active ? 'bg-gray-100' : '', 'block px-4 py-2 text-sm text-gray-700')}>
-                  Settings
-                </a>
+                <a className={classNames(active ? 'bg-gray-100' : '', 'block px-4 py-2 text-sm text-gray-700')}>Settings</a>
               </Link>
             )}
           </Menu.Item>

@@ -1,14 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Head from 'next/head';
-import { useAuth } from '../context/AuthContext';
+import { DropdownService, AIAgentService } from '../../utils/api';
 
 interface SourceDocument {
   work_order_id: number;
   equipment: string;
-  problem: string; // Changed from problem_summary to match API response
+  problem: string;
 }
+
 
 interface AIResponse {
   answer: string;
@@ -19,12 +20,129 @@ interface AIResponse {
   sources: SourceDocument[];
 }
 
+interface Location {
+  id: number;
+  department: {
+    id: number;
+    department: string;
+  };
+  area?: string; // Optional if area might not always exist
+}
+
+interface EquipmentOption {
+  id: number;
+  machine: string;
+  location: Location;
+  // Add any other properties that might exist on equipment options
+}
+
+interface Filters {
+  equipment?: string;
+  department?: string;
+  workStatus?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  typeOfWork?: string;
+  assignedTo?: string;
+}
+
+interface DropdownOption {
+  id: number;
+  name?: string;
+  machine?: string;
+  department?: string;
+  type_of_work?: string;
+  work_status?: string;
+  location?: {
+    department: {
+      id: number;
+      department: string;
+    };
+  };
+}
+
+interface DropdownOptions {
+  equipmentOptions: DropdownOption[];
+  departmentOptions: DropdownOption[];
+  workTypeOptions: DropdownOption[];
+  workStatusOptions: DropdownOption[];
+  assignedToOptions: DropdownOption[];
+}
+
 export default function AIAssistant() {
   const [prompt, setPrompt] = useState('');
   const [response, setResponse] = useState<AIResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingOptions, setLoadingOptions] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { token } = useAuth();
+  const [showFilters, setShowFilters] = useState(false);
+
+  const [filters, setFilters] = useState<Filters>({
+    equipment: '',
+    department: '',
+    workStatus: '',
+    dateFrom: '',
+    dateTo: '',
+    typeOfWork: '',
+    assignedTo: ''
+  });
+
+  const [dropdownOptions, setDropdownOptions] = useState<DropdownOptions>({
+    equipmentOptions: [],
+    departmentOptions: [],
+    workTypeOptions: [],
+    workStatusOptions: [],
+    assignedToOptions: []
+  });
+
+  const [filteredEquipment, setFilteredEquipment] = useState<DropdownOption[]>([]);
+
+
+// Updated useEffect with integrated approach
+useEffect(() => {
+  const loadOptions = async () => {
+    setLoadingOptions(true);
+    try {
+      const options = await DropdownService.getAllDropdownOptions();
+      
+      // Transform equipment data to include location information
+      const transformedEquipment = options.equipmentOptions.map((eq: EquipmentOption) => ({
+        id: eq.id,
+        machine: eq.machine,
+        location: eq.location
+      }));
+      
+    setDropdownOptions({
+      ...dropdownOptions, // Spread existing options
+      equipmentOptions: transformedEquipment // Update just the equipment options
+    });
+      
+      // Initialize with all equipment
+      setFilteredEquipment(transformedEquipment);
+    } finally {
+      setLoadingOptions(false);
+    }
+  };
+
+  loadOptions();
+}, []);
+
+  // Add this effect to filter equipment when department changes
+  useEffect(() => {
+    if (filters.department) {
+      const filtered = dropdownOptions.equipmentOptions.filter(
+        eq => eq.location?.department.id.toString() === filters.department
+      );
+      setFilteredEquipment(filtered);
+      
+      // Clear equipment filter if it's no longer valid
+      if (filters.equipment && !filtered.some(eq => eq.id.toString() === filters.equipment)) {
+        setFilters(prev => ({ ...prev, equipment: '' }));
+      }
+    } else {
+      setFilteredEquipment(dropdownOptions.equipmentOptions);
+    }
+  }, [filters.department, dropdownOptions.equipmentOptions]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,26 +150,44 @@ export default function AIAssistant() {
     setError(null);
     
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/ai-agent/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Token ${token}`,  // Add this line
-        },
-        body: JSON.stringify({ prompt }),
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to get response from AI');
+      const activeFilters = Object.fromEntries(
+        Object.entries(filters).filter(([, value]) => value !== '')
+      );
+      
+      // Check if either prompt or at least one filter is provided
+      if (!prompt && Object.keys(activeFilters).length === 0) {
+        setError('Please provide either a prompt or at least one filter');
+        return;
       }
-
-      const data: AIResponse = await res.json();
-      setResponse(data);
+      
+      console.log("Sending filters:", activeFilters);
+      
+      const res = await AIAgentService.query(
+        prompt || "", // Send empty string if no prompt
+        activeFilters
+      );
+      setResponse(res.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleFilterChange = (field: keyof Filters, value: string) => {
+    setFilters(prev => ({ ...prev, [field]: value }));
+  };
+
+  const resetFilters = () => {
+    setFilters({
+      equipment: '',
+      department: '',
+      workStatus: '',
+      dateFrom: '',
+      dateTo: '',
+      typeOfWork: '',
+      assignedTo: ''
+    });
   };
 
   const formatAnswer = (answer: string) => {
@@ -68,19 +204,25 @@ export default function AIAssistant() {
       </Head>
 
       <main className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          {/* Header */}
+        <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-gray-800 mb-2">Work Order AI Assistant</h1>
             <p className="text-gray-600">
-              Ask questions about work orders, equipment issues, and maintenance history
+              Ask questions about work orders with advanced filtering
             </p>
           </div>
 
-          {/* Input Form */}
-          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          {/* Main Form */}
+          <div className="bg-white rounded-lg shadow-md p-6 mb-8 relative">
+            {loadingOptions && (
+              <div className="absolute inset-0 bg-white bg-opacity-70 flex items-center justify-center z-10">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+              </div>
+            )}
+            
             <form onSubmit={handleSubmit}>
-              <div className="mb-4">
+              {/* Prompt Input */}
+              <div className="mb-6">
                 <label htmlFor="prompt" className="block text-sm font-medium text-gray-700 mb-2">
                   Enter your question
                 </label>
@@ -90,25 +232,179 @@ export default function AIAssistant() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  disabled={isLoading}
-                  placeholder="E.g. What are the most common issues with motors?"
+                  disabled={isLoading || loadingOptions}
+                  placeholder="E.g. What are the most common issues with CAL-MM-02?"
                 />
               </div>
-              <button
-                type="submit"
-                className={`px-4 py-2 rounded-md text-white ${isLoading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <span className="flex items-center">
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Processing...
-                  </span>
-                ) : 'Ask AI'}
-              </button>
+
+              {/* Filters Section */}
+              <div className="mb-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-medium text-gray-800">Filters</h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowFilters(!showFilters)}
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                    disabled={loadingOptions}
+                  >
+                    {showFilters ? 'Hide Filters' : 'Show Filters'}
+                  </button>
+                </div>
+
+                {showFilters && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+<div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">Equipment</label>
+    <select
+      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+      value={filters.equipment}
+      onChange={(e) => handleFilterChange('equipment', e.target.value)}
+      disabled={!!(loadingOptions || (filters.department && filteredEquipment.length === 0))}
+    >
+    <option value="">All Equipment</option>
+    {filteredEquipment.map((eq) => (
+      <option key={eq.id} value={eq.id}>
+        {eq.machine} {eq.location?.department && `(${eq.location.department.department})`}
+      </option>
+    ))}
+    {filters.department && filteredEquipment.length === 0 && (
+      <option value="" disabled>No equipment found for this department</option>
+    )}
+  </select>
+</div>
+
+                      {/* Work Status Dropdown */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Work Status</label>
+                        <select
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                          value={filters.workStatus}
+                          onChange={(e) => handleFilterChange('workStatus', e.target.value)}
+                          disabled={loadingOptions}
+                        >
+                          <option value="">All Statuses</option>
+                          {dropdownOptions.workStatusOptions.map((status) => (
+                            <option key={status.id} value={status.id}>
+                              {status.work_status}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+<div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+  <select
+    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+    value={filters.department}
+    onChange={(e) => handleFilterChange('department', e.target.value)}
+    disabled={loadingOptions}
+  >
+    <option value="">All Departments</option>
+    {dropdownOptions.departmentOptions.map((dept) => (
+      <option key={dept.id} value={dept.id}>
+        {dept.department}
+      </option>
+    ))}
+  </select>
+</div>                 
+                      {/* Date Range */}
+                      <div className="col-span-1 md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="sr-only">From</label>
+                            <input
+                              type="date"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                              value={filters.dateFrom}
+                              onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
+                              disabled={loadingOptions}
+                            />
+                          </div>
+                          <div>
+                            <label className="sr-only">To</label>
+                            <input
+                              type="date"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                              value={filters.dateTo}
+                              onChange={(e) => handleFilterChange('dateTo', e.target.value)}
+                              min={filters.dateFrom}
+                              disabled={loadingOptions || !filters.dateFrom}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Type of Work */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Type of Work</label>
+                        <select
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                          value={filters.typeOfWork}
+                          onChange={(e) => handleFilterChange('typeOfWork', e.target.value)}
+                          disabled={loadingOptions}
+                        >
+                          <option value="">All Types</option>
+                          {dropdownOptions.workTypeOptions.map((type) => (
+                            <option key={type.id} value={type.type_of_work || type.id}>
+                              {type.type_of_work || type.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Assigned To */}
+{/*                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Assigned To</label>
+                        <select
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                          value={filters.assignedTo}
+                          onChange={(e) => handleFilterChange('assignedTo', e.target.value)}
+                          disabled={loadingOptions}
+                        >
+                          <option value="">All Assignees</option>
+                          {dropdownOptions.assignedToOptions.map((person) => (
+                            <option key={person.assigned_to || person.id} value={person.assigned_to || person.id}>
+                              {person.assigned_to || person.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>*/}
+                    </div>
+
+                    <div className="flex justify-end space-x-2">
+                      <button
+                        type="button"
+                        onClick={resetFilters}
+                        className="px-3 py-1.5 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                        disabled={loadingOptions}
+                      >
+                        Reset Filters
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Submit Button */}
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  className={`px-6 py-2 rounded-md text-white ${isLoading || loadingOptions ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                  disabled={isLoading || loadingOptions}
+                >
+                  {isLoading ? (
+                    <span className="flex items-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Processing...
+                    </span>
+                  ) : 'Ask AI'}
+                </button>
+              </div>
             </form>
           </div>
 
