@@ -166,7 +166,7 @@ export default function Header() {
                     <NavLink href="/ai-agent" icon={<SparklesIcon className="w-6 h-6" stroke={strokeClass} />} isAiAgent={true}>AI Maintenance Agent</NavLink>
                   </div>
                 )} 
-                <NavLink href="/analytics" icon={<FolderIcon className="w-6 h-6" stroke={strokeClass} />}>Analytics</NavLink>
+                <NavLink href="/analytics" icon={<ChartPieIcon className="w-6 h-6" stroke={strokeClass} />}>Analytics</NavLink>
                 <NavLink href="/projects" icon={<FolderIcon className="w-6 h-6" stroke={strokeClass} />}>Projects</NavLink>
                 <NavLink href="/calendar" icon={<CalendarIcon className="w-6 h-6" stroke={strokeClass} />}>Calendar</NavLink>
                 <NavLink href="/documents" icon={<ClipboardDocumentIcon className="w-6 h-6" stroke={strokeClass} />}>Documents</NavLink>
