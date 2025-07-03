@@ -302,7 +302,7 @@ export default function LocationDistribution() {
           }`}></div>
         </div>
       ) : data.length > 0 ? (
-        <div className="h-96">
+        <div className="">
           <Bar data={chartData} options={options} />
         </div>
       ) : (

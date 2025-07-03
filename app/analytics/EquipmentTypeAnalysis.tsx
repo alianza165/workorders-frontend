@@ -118,40 +118,51 @@ export default function EquipmentTypeAnalysis() {
     }]
   };
 
-  const options: ChartOptions<'pie'> = {
-    responsive: true,
-    plugins: {
-      legend: {
-        position: 'right',
-        labels: {
-          color: theme === 'dark' ? '#e5e7eb' : '#374151',
-          font: {
-            size: 14
+const options: ChartOptions<'pie'> = {
+  responsive: true,
+  maintainAspectRatio: false, // Add this to disable automatic aspect ratio
+  plugins: {
+    legend: {
+      position: 'bottom',
+      labels: {
+        color: theme === 'dark' ? '#e5e7eb' : '#374151',
+        font: {
+          size: 10
+        },
+        padding: 10,
+        boxWidth: 16,
+      },
+      align: 'center',
+    },
+    tooltip: {
+      callbacks: {
+        label: (context) => {
+          const label = context.label || '';
+          const value = context.raw || 0;
+          const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
+          const percentage = Math.round((Number(value) / total) * 100);
+          const avgHours = data[context.dataIndex].avg_completion_hours;
+          
+          let tooltip = `${label}: ${value} (${percentage}%)`;
+          if (avgHours) {
+            tooltip += `\nAvg: ${avgHours.toFixed(1)} hours`;
           }
+          return tooltip;
         }
       },
-      tooltip: {
-        callbacks: {
-          label: (context) => {
-            const label = context.label || '';
-            const value = context.raw || 0;
-            const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
-            const percentage = Math.round((Number(value) / total) * 100);
-            const avgHours = data[context.dataIndex].avg_completion_hours;
-            
-            let tooltip = `${label}: ${value} (${percentage}%)`;
-            if (avgHours) {
-              tooltip += `\nAvg: ${avgHours.toFixed(1)} hours`;
-            }
-            return tooltip;
-          }
-        },
-        bodyFont: {
-          size: 14
-        }
+      bodyFont: {
+        size: 14
       }
     }
-  };
+  },
+  // These help maximize the pie area
+  layout: {
+    padding: {
+      top: 20,
+      bottom: 20 // Give space for legend
+    }
+  }
+};
 
   const ThemeAwareDatePicker = ({ ...props }: any) => (
     <DatePicker
@@ -267,15 +278,17 @@ export default function EquipmentTypeAnalysis() {
       )}
 
       {loading ? (
-        <div className="flex justify-center items-center h-96">
+        <div className="flex justify-center items-center h-full">
           <div className={`animate-spin rounded-full h-12 w-12 border-b-2 ${
             theme === 'dark' ? 'border-indigo-400' : 'border-blue-600'
           }`}></div>
         </div>
       ) : data.length > 0 ? (
         <div className="flex flex-col lg:flex-row gap-8">
-          <div className="lg:w-1/2 h-96">
-            <Pie data={chartData} options={options} />
+          <div className="lg:w-1/2" style={{ height: '450px' }}> {/* Increased height */}
+            <div className="h-full w-full"> {/* Will fill the parent */}
+              <Pie data={chartData} options={options} />
+            </div>
           </div>
           <div className="lg:w-1/2">
             <h3 className={`font-medium mb-4 ${
