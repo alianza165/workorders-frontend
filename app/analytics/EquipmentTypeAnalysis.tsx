@@ -13,9 +13,14 @@ import { useAuth } from '../context/AuthContext';
 import { useAppContext } from '../context/AppContext';
 import { CpuChipIcon, FunnelIcon } from '@heroicons/react/24/outline';
 import DatePicker from 'react-datepicker';
+import { DatePickerProps } from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
+
+type ThemeAwareDatePickerProps = DatePickerProps & {
+  theme?: 'light' | 'dark';
+};
 
 interface EquipmentTypeData {
   equipment_type: string;
@@ -164,7 +169,7 @@ const options: ChartOptions<'pie'> = {
   }
 };
 
-  const ThemeAwareDatePicker = ({ ...props }: any) => (
+  const ThemeAwareDatePicker = ({ theme, ...props }: ThemeAwareDatePickerProps) => (
     <DatePicker
       className={`w-full p-2 rounded border ${
         theme === 'dark' 
@@ -174,6 +179,13 @@ const options: ChartOptions<'pie'> = {
       {...props}
     />
   );
+
+const handleDateFromChange = (date: Date | null) => {
+  setFilters(prev => ({
+    ...prev,
+    dateFrom: date || prev.dateFrom // Keep previous value if null
+  }));
+};
 
   return (
     <div className={`rounded-lg shadow p-6 ${
@@ -212,10 +224,11 @@ const options: ChartOptions<'pie'> = {
             </label>
             <ThemeAwareDatePicker
               selected={filters.dateFrom}
-              onChange={(date: Date) => setFilters({...filters, dateFrom: date})}
+              onChange={handleDateFromChange}
               selectsStart
               startDate={filters.dateFrom}
               endDate={filters.dateTo}
+              placeholderText="Select start date"
             />
           </div>
           <div>
@@ -225,12 +238,12 @@ const options: ChartOptions<'pie'> = {
               To Date
             </label>
             <ThemeAwareDatePicker
-              selected={filters.dateTo}
-              onChange={(date: Date) => setFilters({...filters, dateTo: date})}
-              selectsEnd
+              selected={filters.dateFrom}
+              onChange={handleDateFromChange}
+              selectsStart
               startDate={filters.dateFrom}
               endDate={filters.dateTo}
-              minDate={filters.dateFrom}
+              placeholderText="Select start date"
             />
           </div>
           <div>

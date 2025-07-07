@@ -16,7 +16,7 @@ import {
 } from 'chart.js';
 import { useAuth } from '../context/AuthContext';
 import { useAppContext } from '../context/AppContext';
-import { ChartBarIcon, CalendarIcon, ArrowsRightLeftIcon } from '@heroicons/react/24/outline';
+import { ArrowsRightLeftIcon } from '@heroicons/react/24/outline';
 
 ChartJS.register(
   CategoryScale,

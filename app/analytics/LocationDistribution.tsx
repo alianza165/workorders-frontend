@@ -17,8 +17,14 @@ import { useAppContext } from '../context/AppContext';
 import { MapPinIcon, FunnelIcon } from '@heroicons/react/24/outline';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { DatePickerProps } from 'react-datepicker';
+import { TooltipItem } from 'chart.js';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+
+type ThemeAwareDatePickerProps = DatePickerProps & {
+  theme?: 'light' | 'dark';
+};
 
 interface LocationData {
   department: string;
@@ -138,16 +144,16 @@ export default function LocationDistribution() {
       },
       tooltip: {
         callbacks: {
-          label: (ctx: any) => {
-            const label = chartData.labels[ctx.dataIndex];
-            const value = ctx.raw;
-            return `${label}: ${value} work orders`;
+          label: (context: TooltipItem<'bar'>) => {
+            const label = context.dataset.label || '';
+            const value = context.parsed.y; // For bar charts, use parsed.y instead of raw
+            return `${label}: ${value} work order${value !== 1 ? 's' : ''}`;
           }
         },
-        backgroundColor: theme === 'dark' ? '#1f2937' : '#ffffff', // gray-800 / white
-        titleColor: theme === 'dark' ? '#e5e7eb' : '#111827',      // gray-200 / gray-900
-        bodyColor: theme === 'dark' ? '#d1d5db' : '#4b5563',       // gray-300 / gray-600
-        borderColor: theme === 'dark' ? '#4b5563' : '#d1d5db',     // gray-600 / gray-300
+        backgroundColor: theme === 'dark' ? '#1f2937' : '#ffffff',
+        titleColor: theme === 'dark' ? '#e5e7eb' : '#111827',
+        bodyColor: theme === 'dark' ? '#d1d5db' : '#4b5563',
+        borderColor: theme === 'dark' ? '#4b5563' : '#d1d5db',
         borderWidth: 1
       }
     },
@@ -183,7 +189,7 @@ export default function LocationDistribution() {
   };
 
   // Custom date picker component to handle theme
-  const ThemeAwareDatePicker = ({ ...props }: any) => (
+  const ThemeAwareDatePicker = ({ theme, ...props }: ThemeAwareDatePickerProps) => (
     <DatePicker
       className={`w-full p-2 rounded border ${
         theme === 'dark' 
@@ -193,6 +199,13 @@ export default function LocationDistribution() {
       {...props}
     />
   );
+
+const handleDateFromChange = (date: Date | null) => {
+  setFilters(prev => ({
+    ...prev,
+    dateFrom: date || prev.dateFrom // Keep previous value if null
+  }));
+};
 
   return (
     <div className={`rounded-lg shadow p-6 ${
@@ -230,10 +243,11 @@ export default function LocationDistribution() {
             </label>
             <ThemeAwareDatePicker
               selected={filters.dateFrom}
-              onChange={(date: Date) => setFilters({...filters, dateFrom: date})}
+              onChange={handleDateFromChange}
               selectsStart
               startDate={filters.dateFrom}
               endDate={filters.dateTo}
+              placeholderText="Select start date"
             />
           </div>
           <div>
@@ -243,12 +257,12 @@ export default function LocationDistribution() {
               To Date
             </label>
             <ThemeAwareDatePicker
-              selected={filters.dateTo}
-              onChange={(date: Date) => setFilters({...filters, dateTo: date})}
-              selectsEnd
+              selected={filters.dateFrom}
+              onChange={handleDateFromChange}
+              selectsStart
               startDate={filters.dateFrom}
               endDate={filters.dateTo}
-              minDate={filters.dateFrom}
+              placeholderText="Select start date"
             />
           </div>
           <div>

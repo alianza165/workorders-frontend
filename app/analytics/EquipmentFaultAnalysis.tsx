@@ -1,12 +1,12 @@
 "use client"
 
-// components/analytics/EquipmentFaultAnalysis.tsx
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useAppContext } from '../context/AppContext';
 import { ExclamationTriangleIcon, ClockIcon, WrenchIcon } from '@heroicons/react/24/outline';
 
-interface FaultItem {
+// Type definitions
+interface FaultAnalysisItem {
   equipment__machine: string;
   equipment__machine_type__machine_type: string;
   problem: string;
@@ -14,19 +14,36 @@ interface FaultItem {
   avg_repair_hours: number;
 }
 
-interface PredictiveItem {
+interface PredictiveCandidate {
+  equipment_id: number;
   equipment_name: string;
-  last_failure: string;
+  last_failure: string; // ISO string
   avg_interval_days: number;
   days_overdue: number;
+}
+
+interface ApiResponse {
+  fault_analysis: FaultAnalysisItem[];
+  predictive_candidates: PredictiveCandidate[];
+}
+
+interface ProcessedFaultItem extends Omit<FaultAnalysisItem, 'avg_repair_hours'> {
+  avgRepairHours: number;
+  formattedProblem: string;
+}
+
+interface ProcessedPredictiveItem extends Omit<PredictiveCandidate, 'last_failure'> {
+  lastFailure: Date;
+  status: 'overdue' | 'due_soon';
+  severity: 'critical' | 'warning';
 }
 
 export default function EquipmentFaultAnalysis() {
   const { token } = useAuth();
   const { theme } = useAppContext();
-  const [faultData, setFaultData] = useState<FaultItem[]>([]);
-  const [predictiveData, setPredictiveData] = useState<PredictiveItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [faultData, setFaultData] = useState<ProcessedFaultItem[]>([]);
+  const [predictiveData, setPredictiveData] = useState<ProcessedPredictiveItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
@@ -43,100 +60,101 @@ export default function EquipmentFaultAnalysis() {
         }
       );
       
-      if (!response.ok) throw new Error('Failed to fetch fault data');
-      const data = await response.json();
+      if (!response.ok) throw new Error('Failed to fetch equipment fault data');
       
-      // Convert string durations to hours and filter invalid data
-      const processedFaultData = data.fault_analysis.map(item => ({
-        ...item,
-        // Convert seconds to hours if needed, or use as-is if already in hours
-        avg_repair_hours: item.avg_repair_hours 
-          ? parseFloat(item.avg_repair_hours) / (item.avg_repair_hours > 10000 ? 3600 : 1)
-          : 0
-      })).filter(item => item.avg_repair_hours < 1000); // Filter out unrealistic values
+      const data: ApiResponse = await response.json();
 
-      // Process predictive candidates to handle zero intervals
-      const processedPredictiveData = data.predictive_candidates
-        .filter(item => item.avg_interval_days > 0) // Exclude invalid intervals
-        .map(item => ({
+      // Process fault data
+      const processedFaultData: ProcessedFaultItem[] = data.fault_analysis.map(item => ({
+        ...item,
+        avgRepairHours: item.avg_repair_hours / 3600, // Convert seconds to hours
+        formattedProblem: item.problem.replace(/\r\n/g, ' ').trim()
+      }));
+
+      // Process predictive data
+      const processedPredictiveData: ProcessedPredictiveItem[] = data.predictive_candidates.map(item => {
+        const lastFailure = new Date(item.last_failure);
+        const status: 'overdue' | 'due_soon' = item.days_overdue > 0 ? 'overdue' : 'due_soon';
+        const severity: 'critical' | 'warning' = item.days_overdue > 30 ? 'critical' : 'warning';
+        
+        return {
           ...item,
-          last_failure: new Date(item.last_failure),
-          days_overdue: Math.max(0, item.days_overdue) // Ensure non-negative
-        }));
+          lastFailure,
+          status,
+          severity
+        };
+      });
 
       setFaultData(processedFaultData);
       setPredictiveData(processedPredictiveData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : 'Unknown error occurred');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    console.log(faultData)
-  }, [faultData]);
-
-  useEffect(() => {
     fetchData();
   }, []);
 
-  // Group problems by equipment
-  const equipmentProblems = faultData.reduce((acc, item) => {
+  // Group fault data by equipment
+  const equipmentFaults = faultData.reduce<Record<string, ProcessedFaultItem[]>>((acc, item) => {
     const key = `${item.equipment__machine} (${item.equipment__machine_type__machine_type})`;
     if (!acc[key]) acc[key] = [];
-    acc[key].push({
-      problem: item.problem,
-      count: item.fault_count,
-      avgHours: item.avg_repair_hours
-    });
+    acc[key].push(item);
     return acc;
-  }, {} as Record<string, Array<{problem: string, count: number, avgHours: number}>>);
+  }, {});
 
-return (
-  <div className={`rounded-lg shadow p-6 ${
-    theme === 'dark' ? 'bg-gray-800' : 'bg-white'
-  }`}>
-    <div className="flex items-center mb-6">
-      <ExclamationTriangleIcon className={`h-6 w-6 mr-2 ${
-        theme === 'dark' ? 'text-yellow-400' : 'text-yellow-500'
-      }`} />
-      <h2 className={`text-xl font-bold ${
-        theme === 'dark' ? 'text-white' : 'text-gray-800'
-      }`}>
-        Equipment Fault Analysis
-      </h2>
-    </div>
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className={`animate-spin rounded-full h-12 w-12 border-b-2 ${
+          theme === 'dark' ? 'border-blue-400' : 'border-blue-600'
+        }`}></div>
+      </div>
+    );
+  }
 
-    {error && (
-      <div className={`p-4 mb-6 rounded border-l-4 ${
+  if (error) {
+    return (
+      <div className={`p-4 rounded border-l-4 ${
         theme === 'dark' 
           ? 'bg-red-900/30 border-red-500 text-red-200' 
           : 'bg-red-100 border-red-500 text-red-700'
       }`}>
         {error}
       </div>
-    )}
+    );
+  }
 
-    {loading ? (
-      <div className="flex justify-center items-center h-64">
-        <div className={`animate-spin rounded-full h-12 w-12 border-b-2 ${
-          theme === 'dark' ? 'border-yellow-400' : 'border-yellow-500'
-        }`}></div>
+  return (
+    <div className={`rounded-lg shadow p-6 ${
+      theme === 'dark' ? 'bg-gray-800' : 'bg-white'
+    }`}>
+      <div className="flex items-center mb-6">
+        <ExclamationTriangleIcon className={`h-6 w-6 mr-2 ${
+          theme === 'dark' ? 'text-yellow-400' : 'text-yellow-500'
+        }`} />
+        <h2 className={`text-xl font-bold ${
+          theme === 'dark' ? 'text-white' : 'text-gray-800'
+        }`}>
+          Equipment Fault Analysis
+        </h2>
       </div>
-    ) : (
-      <div className="flex flex-col lg:flex-row gap-8">
-        {/* Current Faults - Fixed height with scroll */}
-        <div className="lg:w-1/2">
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Current Faults Section */}
+        <div>
           <h3 className={`flex items-center text-lg font-semibold mb-4 ${
             theme === 'dark' ? 'text-white' : 'text-gray-700'
           }`}>
             <WrenchIcon className="h-5 w-5 mr-2" />
-            Most Frequent Faults (Last 90 Days)
+            Most Frequent Faults
           </h3>
           
-          <div className="space-y-4 overflow-y-auto" style={{ height: '400px' }}>
-            {Object.entries(equipmentProblems).map(([equipment, problems]) => (
+          <div className="space-y-4 max-h-[500px] overflow-y-auto">
+            {Object.entries(equipmentFaults).map(([equipment, faults]) => (
               <div key={equipment} className={`p-4 rounded-lg ${
                 theme === 'dark' ? 'bg-gray-700/50' : 'bg-gray-50'
               }`}>
@@ -147,27 +165,24 @@ return (
                 </h4>
                 
                 <div className="space-y-3">
-                  {problems.map((prob, idx) => (
+                  {faults.map((fault, idx) => (
                     <div key={idx} className="flex justify-between items-start">
                       <div className="flex-1">
                         <p className={`text-sm ${
                           theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
                         }`}>
-                          {prob.problem}
+                          {fault.formattedProblem}
                         </p>
                         <p className={`text-xs ${
                           theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
                         }`}>
-                          Avg. repair: {prob.avgHours > 0 ? 
-                            `${prob.avgHours.toFixed(1)} hours` : 
-                            'N/A'
-                          }
+                          Avg. repair: {fault.avgRepairHours.toFixed(1)} hours
                         </p>
                       </div>
                       <span className={`px-2 py-1 rounded text-xs font-medium ${
                         theme === 'dark' ? 'bg-gray-600 text-gray-200' : 'bg-gray-200 text-gray-700'
                       }`}>
-                        {prob.count} occurrence{prob.count > 1 ? 's' : ''}
+                        {fault.fault_count} occurrence{fault.fault_count !== 1 ? 's' : ''}
                       </span>
                     </div>
                   ))}
@@ -177,16 +192,16 @@ return (
           </div>
         </div>
 
-        {/* Predictive Analysis - Fixed height with scroll */}
-        <div className="lg:w-1/2">
+        {/* Predictive Analysis Section */}
+        <div>
           <h3 className={`flex items-center text-lg font-semibold mb-4 ${
             theme === 'dark' ? 'text-white' : 'text-gray-700'
           }`}>
             <ClockIcon className="h-5 w-5 mr-2" />
-            Potential Upcoming Issues
+            Maintenance Predictions
           </h3>
           
-          <div className="space-y-4 overflow-y-auto" style={{ height: '400px' }}>
+          <div className="space-y-4 max-h-[500px] overflow-y-auto">
             {predictiveData.length > 0 ? (
               predictiveData.map((item, idx) => (
                 <div key={idx} className={`p-4 rounded-lg ${
@@ -199,7 +214,7 @@ return (
                       {item.equipment_name}
                     </h4>
                     <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      item.days_overdue > 0 
+                      item.status === 'overdue'
                         ? theme === 'dark' 
                           ? 'bg-red-900/80 text-red-200' 
                           : 'bg-red-100 text-red-700'
@@ -208,7 +223,7 @@ return (
                           : 'bg-yellow-100 text-yellow-700'
                     }`}>
                       {item.days_overdue > 0 
-                        ? `${item.days_overdue} day${item.days_overdue > 1 ? 's' : ''} overdue`
+                        ? `${item.days_overdue} day${item.days_overdue !== 1 ? 's' : ''} overdue`
                         : 'Due soon'}
                     </span>
                   </div>
@@ -216,12 +231,16 @@ return (
                   <div className={`text-sm space-y-1 ${
                     theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
                   }`}>
-                    <p>Last failed: {item.last_failure.toLocaleDateString()}</p>
+                    <p>Last failure: {item.lastFailure.toLocaleDateString()}</p>
                     <p>Average interval: {item.avg_interval_days} days</p>
                     <p className={`font-medium ${
-                      theme === 'dark' ? 'text-yellow-300' : 'text-yellow-600'
+                      item.severity === 'critical'
+                        ? theme === 'dark' ? 'text-red-300' : 'text-red-600'
+                        : theme === 'dark' ? 'text-yellow-300' : 'text-yellow-600'
                     }`}>
-                      Recommended: Schedule preventive maintenance
+                      {item.severity === 'critical' 
+                        ? 'Immediate maintenance required' 
+                        : 'Schedule maintenance soon'}
                     </p>
                   </div>
                 </div>
@@ -236,7 +255,6 @@ return (
           </div>
         </div>
       </div>
-    )}
-  </div>
-);
+    </div>
+  );
 }
